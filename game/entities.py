@@ -10,6 +10,7 @@ class Character:
         self.name = name
         self.max_hp = max_hp
         self.hp = max_hp
+        self.description = ""
 
     def take_damage(self, amount: int):
         if amount <= 0:

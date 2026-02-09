@@ -2,9 +2,11 @@
 # DESIGN PATTERNS USED:
 # - Singleton: logger instance
 # - Observer: event_bus for subscribing to game events
+# - Factory Method: EnemyFactory for creating enemy instances
 
 from utils.logger import logger
 from game.entities import Character, event_bus
+from game.factories.enemy_factory import EnemyFactory
 
 # Event listeners
 def on_damage(data):
@@ -67,14 +69,27 @@ def main():
             afiseaza_status(erou)
 
         elif optiune == "2":
-            nume = input("Nume inamic (Enter = 'Goblin'): ").strip() or "Goblin"
-            try:
-                hp_max = int(input("HP maxim (Enter = 50): ") or 50)
-            except ValueError:
-                hp_max = 50
-                print("Valoare invalidă → folosim 50.")
-            inamic = Character(nume, hp_max)
-            print(f"\nInamic creat: {inamic.name}")
+            print("\nTipuri de inamici disponibili:")
+            print("  g - Goblin")
+            print("  o - Orc Warrior")
+            print("  t - Troll")
+            print("  r - Random")
+            
+            alegere = input("Alege tip (g/o/t/r): ").strip().lower()
+            
+            if alegere == 'g':
+                inamic = EnemyFactory.create_goblin()
+            elif alegere == 'o':
+                inamic = EnemyFactory.create_orc()
+            elif alegere == 't':
+                inamic = EnemyFactory.create_troll()
+            elif alegere == 'r':
+                inamic = EnemyFactory.create_random_enemy()
+            else:
+                print("Opțiune invalidă → creez Goblin implicit")
+                inamic = EnemyFactory.create_goblin()
+            
+            print(f"\nInamic creat cu succes: {inamic.name}")
             afiseaza_status(inamic)
 
         elif optiune == "3":

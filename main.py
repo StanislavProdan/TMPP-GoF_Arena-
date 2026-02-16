@@ -7,6 +7,7 @@
 from utils.logger import logger
 from game.entities import Character, event_bus
 from game.factories.enemy_factory import EnemyFactory
+from patterns.creational.abstract_factory import MedievalFactionFactory, SciFiFactionFactory
 
 # Event listeners
 def on_damage(data):
@@ -41,9 +42,10 @@ def meniu():
     print("  2. Creează un inamic nou")
     print("  3. Testează luptă simplă (manual)")
     print("  4. Arată toate log-urile")
+    print("  5. Creează kit facțiune (Abstract Factory)")
     print("  0. Ieșire")
     print("=" * 50)
-    return input("\nAlege opțiunea (0-4): ").strip()
+    return input("\nAlege opțiunea (0-5): ").strip()
 
 
 def main():
@@ -127,13 +129,39 @@ def main():
             print(logger.get_all_logs())
             print("-" * 50)
 
+        elif optiune == "5":
+            print("\nFacțiuni disponibile:")
+            print("  m - Medieval")
+            print("  s - Sci-Fi")
+            
+            alegere = input("Alege facțiune (m/s): ").strip().lower()
+            
+            if alegere == 'm':
+                factory = MedievalFactionFactory()
+            elif alegere == 's':
+                factory = SciFiFactionFactory()
+            else:
+                print("Invalid → folosim Medieval implicit")
+                factory = MedievalFactionFactory()
+            
+            hero = factory.create_hero()
+            enemy = factory.create_enemy()
+            weapon = factory.create_weapon()
+            
+            print("\nKit facțiune creat:")
+            print(f"Erou: {hero.name} ({hero.description})")
+            afiseaza_status(hero)
+            print(f"Inamic: {enemy.name} ({enemy.description})")
+            afiseaza_status(enemy)
+            print(f"Armă tipică: {weapon}")
+
         elif optiune == "0":
             print("\nMulțumim că ai testat GoF Arena!")
             print("Ieșire...")
             break
 
         else:
-            print("\nOpțiune invalidă. Alege un număr între 0 și 4.")
+            print("\nOpțiune invalidă. Alege un număr între 0 și 5.")
 
 if __name__ == "__main__":
     main()

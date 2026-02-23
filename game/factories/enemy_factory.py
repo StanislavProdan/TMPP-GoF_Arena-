@@ -1,18 +1,27 @@
 # game/factories/enemy_factory.py
-# DESIGN PATTERN: Factory Method 
+# DESIGN PATTERN: Factory Method
 
+from abc import ABC, abstractmethod
 from game.entities import Character
 from patterns.creational.builder import CharacterBuilder
 import random
 
-class EnemyFactory:
+class EnemyFactory(ABC):
     """
-    Factory Method pentru crearea inamicilor predefiniți,
-    folosind CharacterBuilder pentru consistență.
+    Abstract Factory pentru crearea inamicilor.
+    Factory Method pattern: subclasele decid ce tip de inamic să creeze.
     """
 
-    @staticmethod
-    def create_goblin():
+    @abstractmethod
+    def create_enemy(self) -> Character:
+        pass
+
+class GoblinFactory(EnemyFactory):
+    """
+    Factory concret pentru crearea goblinilor.
+    """
+
+    def create_enemy(self) -> Character:
         builder = CharacterBuilder()
         return (builder
                 .name("Goblin")
@@ -21,8 +30,12 @@ class EnemyFactory:
                 .description("Un goblin mic și viclean, dar slab")
                 .build())
 
-    @staticmethod
-    def create_orc():
+class OrcFactory(EnemyFactory):
+    """
+    Factory concret pentru crearea orc-ilor.
+    """
+
+    def create_enemy(self) -> Character:
         builder = CharacterBuilder()
         return (builder
                 .name("Orc Warrior")
@@ -31,8 +44,12 @@ class EnemyFactory:
                 .description("Un orc puternic și agresiv")
                 .build())
 
-    @staticmethod
-    def create_troll():
+class TrollFactory(EnemyFactory):
+    """
+    Factory concret pentru crearea troliilor.
+    """
+
+    def create_enemy(self) -> Character:
         builder = CharacterBuilder()
         return (builder
                 .name("Troll")
@@ -41,11 +58,11 @@ class EnemyFactory:
                 .description("Un troll mare și regenerativ")
                 .build())
 
-    @staticmethod
-    def create_random_enemy():
-        creators = [
-            EnemyFactory.create_goblin,
-            EnemyFactory.create_orc,
-            EnemyFactory.create_troll
-        ]
-        return random.choice(creators)()
+class RandomEnemyFactory(EnemyFactory):
+    """
+    Factory pentru crearea unui inamic aleatoriu.
+    """
+
+    def create_enemy(self) -> Character:
+        factories = [GoblinFactory(), OrcFactory(), TrollFactory()]
+        return random.choice(factories).create_enemy()

@@ -2,11 +2,11 @@
 # DESIGN PATTERNS USED:
 # - Singleton: logger instance
 # - Observer: event_bus for subscribing to game events
-# - Factory Method: EnemyFactory for creating enemy instances
+# - Factory Method: EnemyFactory subclasses for creating enemy instances
 
 from utils.logger import logger
 from game.entities import Character, event_bus
-from game.factories.enemy_factory import EnemyFactory
+from game.factories.enemy_factory import GoblinFactory, OrcFactory, TrollFactory, RandomEnemyFactory
 from patterns.creational.abstract_factory import MedievalFactionFactory, SciFiFactionFactory
 
 # Event listeners
@@ -80,16 +80,16 @@ def main():
             alegere = input("Alege tip (g/o/t/r): ").strip().lower()
             
             if alegere == 'g':
-                inamic = EnemyFactory.create_goblin()
+                inamic = GoblinFactory().create_enemy()
             elif alegere == 'o':
-                inamic = EnemyFactory.create_orc()
+                inamic = OrcFactory().create_enemy()
             elif alegere == 't':
-                inamic = EnemyFactory.create_troll()
+                inamic = TrollFactory().create_enemy()
             elif alegere == 'r':
-                inamic = EnemyFactory.create_random_enemy()
+                inamic = RandomEnemyFactory().create_enemy()
             else:
                 print("Opțiune invalidă → creez Goblin implicit")
-                inamic = EnemyFactory.create_goblin()
+                inamic = GoblinFactory().create_enemy()
             
             print(f"\nInamic creat cu succes: {inamic.name}")
             afiseaza_status(inamic)

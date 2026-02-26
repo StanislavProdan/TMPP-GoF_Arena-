@@ -8,7 +8,7 @@ import random
 
 class EnemyFactory(ABC):
     """
-    Abstract Factory pentru crearea inamicilor.
+    
     Factory Method pattern: subclasele decid ce tip de inamic să creeze.
     """
 

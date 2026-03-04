@@ -53,8 +53,7 @@ def meniu():
 
 def main():
     print("=== GoF Arena - Design Patterns Showcase ===")
-    print("Implementare: Singleton + Observer + Character")
-    print("Scop: demonstrarea celor 23 pattern-uri GoF într-un simulator text-based\n")
+    print("Scop: demonstrarea celor 22 pattern-uri GoF într-un simulator text-based\n")
 
     erou = None
     inamic = None

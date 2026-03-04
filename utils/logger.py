@@ -2,6 +2,8 @@
 # DESIGN PATTERN: Singleton
 # Ensures only one instance of Logger exists throughout the application
 
+from datetime import datetime
+
 class Logger:
     _instance = None
 
@@ -13,8 +15,7 @@ class Logger:
         return cls._instance
 
     def log(self, message: str, level: str = "INFO"):
-        # Poți adăuga timestamp real cu datetime
-        timestamp = "2026-02-XX"
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
         entry = f"[{level}] {timestamp} - {message}"
         self.messages.append(entry)
         print(entry)

@@ -4,6 +4,8 @@ from abc import ABC, abstractmethod
 from game.entities import Character
 from patterns.creational.builder import CharacterBuilder
 
+# Definim fabrica abstractă (interfața comună).
+# Aceasta declară operațiile pentru o familie de produse compatibile.
 class FactionFactory(ABC):
     """Abstract Factory pentru crearea familiilor de personaje dintr-o facțiune/temă."""
 
@@ -20,6 +22,8 @@ class FactionFactory(ABC):
         pass
     
 
+# Implementăm o fabrică concretă pentru familia „Medieval”.
+# Toate produsele create aici (hero, enemy, weapon) aparțin aceleiași teme.
 class MedievalFactionFactory(FactionFactory):
     """Facțiune medievală: eroi cavaleri, inamici goblin/orc."""
 
@@ -45,6 +49,8 @@ class MedievalFactionFactory(FactionFactory):
         return "Longsword +5"
 
 
+# Implementăm o altă fabrică concretă pentru familia „Sci-Fi”.
+# Schimbarea fabricii schimbă întreaga familie de obiecte, fără a schimba clientul.
 class SciFiFactionFactory(FactionFactory):
     """Facțiune sci-fi: eroi roboți, inamici extratereștri."""
 
@@ -68,4 +74,9 @@ class SciFiFactionFactory(FactionFactory):
 
     def create_weapon(self) -> str:
         return "Plasma Rifle Mk.3"
+
+
+#  Clientul trebuie să depindă de tipul abstract `FactionFactory`,
+# nu de clasele concrete. Astfel respectăm principiul Open/Closed și putem
+# adăuga ușor noi facțiuni (ex. FantasyFactionFactory) fără modificări majore.
     

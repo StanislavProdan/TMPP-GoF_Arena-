@@ -6,6 +6,8 @@ from game.entities import Character
 from patterns.creational.builder import CharacterBuilder
 import random
 
+# (Factory Method): definim Creatorul abstract.
+# Acesta declară metoda factory `create_enemy()`, fără implementare concretă.
 class EnemyFactory(ABC):
     """
     Abstract Factory pentru crearea inamicilor.
@@ -16,6 +18,7 @@ class EnemyFactory(ABC):
     def create_enemy(self) -> Character:
         pass
 
+# definim un Creator concret care decide ce produs concret creează.
 class GoblinFactory(EnemyFactory):
     """
     Factory concret pentru crearea goblinilor.
@@ -30,6 +33,7 @@ class GoblinFactory(EnemyFactory):
                 .description("Un goblin mic și viclean, dar slab")
                 .build())
 
+# alt Creator concret, aceeași interfață, produs diferit.
 class OrcFactory(EnemyFactory):
     """
     Factory concret pentru crearea orc-ilor.
@@ -44,6 +48,7 @@ class OrcFactory(EnemyFactory):
                 .description("Un orc puternic și agresiv")
                 .build())
 
+# extinderea este simplă — adăugăm un nou Creator concret.
 class TrollFactory(EnemyFactory):
     """
     Factory concret pentru crearea troliilor.
@@ -58,6 +63,8 @@ class TrollFactory(EnemyFactory):
                 .description("Un troll mare și regenerativ")
                 .build())
 
+#  Clientul poate lucra doar cu tipul abstract `EnemyFactory`.
+# `RandomEnemyFactory` orchestrează selecția fără a schimba codul clientului.
 class RandomEnemyFactory(EnemyFactory):
     """
     Factory pentru crearea unui inamic aleatoriu.

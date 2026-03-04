@@ -1,6 +1,6 @@
 # GoF Arena
 
-Simulator text-based de lupte RPG în Python pentru demonstrarea celor 22 pattern-uri de design Gang of Four (GoF).
+Simulator text-based de lupte RPG în Python pentru demonstrarea celor 23 pattern-uri de design Gang of Four (GoF).
 
 ## Pattern-uri implementate până acum
 - **Singleton** - `utils/logger.py` - Ensure only one Logger instance exists globally
@@ -8,6 +8,7 @@ Simulator text-based de lupte RPG în Python pentru demonstrarea celor 22 patter
 - **Builder** - `patterns/creational/builder.py` - CharacterBuilder pentru construire fluent a personajelor
 - **Factory Method** - `game/factories/enemy_factory.py` - EnemyFactory pentru creare automată a tipurilor de inamici
 - **Abstract Factory** - `patterns/creational/abstract_factory.py` - MedievalFactionFactory și SciFiFactionFactory pentru crearea de kit-uri complete (erou, inamic, armă)
+- **Prototype** - `patterns/creational/prototype.py` - CharacterPrototype + PrototypeRegistry pentru clonarea rapidă a personajelor predefinite
 
 ## Structură proiect
 ```
@@ -25,7 +26,8 @@ TMPP(GoF_Arena)/
 │   └── creational/
 │       ├── __init__.py
 │       ├── builder.py          # Builder pattern - CharacterBuilder
-│       └── abstract_factory.py  # Abstract Factory pattern
+│       ├── abstract_factory.py  # Abstract Factory pattern
+│       └── prototype.py         # Prototype pattern
 └── utils/
     ├── __init__.py
     └── logger.py        # Singleton pattern - Logger global
@@ -34,7 +36,7 @@ TMPP(GoF_Arena)/
 ## Cum rulezi
 ```bash
 # Din rădăcina proiectului
-cd c:\Users\dprod\Desktop\TMPP(GoF_Arena)
+cd TMPP(GoF_Arena)
 python main.py
 ```
 
@@ -45,6 +47,8 @@ python main.py
 - ✅ SciFiFactionFactory - creează erou (Nova-7 Android), inamic (Xenomorph Scout), armă (Plasma Rifle Mk.3)
 - ✅ Fixate metodele CharacterBuilder în Abstract Factory (set_name → name, set_max_hp → max_hp, etc.)
 - ✅ Update menu range: 0-4 → 0-5
+- ✅ Implementat Prototype pattern în `patterns/creational/prototype.py`
+- ✅ Adăugat opțiunea 6 în meniu pentru clonarea inamicilor din prototip (Goblin Elite, Orc Berserker, Ancient Troll)
 
 ## Gameplay
 1. **Opțiunea 1**: Creează un erou cu HP personalizat
@@ -52,3 +56,4 @@ python main.py
 3. **Opțiunea 3**: Luptă manuală cu damage custom
 4. **Opțiunea 4**: Afişează log-urile complete (Singleton logger)
 5. **Opțiunea 5**: Creează kit facțiune (Abstract Factory) - alege Medieval sau Sci-Fi pentru a genera erou, inamic și armă corespunzătoare temei
+6. **Opțiunea 6**: Creează inamic din prototip (Prototype) - clonează un șablon predefinit și îi poți schimba numele

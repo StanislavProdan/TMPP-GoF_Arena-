@@ -3,11 +3,13 @@
 # - Singleton: logger instance
 # - Observer: event_bus for subscribing to game events
 # - Factory Method: EnemyFactory subclasses for creating enemy instances
+# - Prototype: clonare rapidă pe baza unor prototipuri predefinite
 
 from utils.logger import logger
 from game.entities import Character, event_bus
 from game.factories.enemy_factory import GoblinFactory, OrcFactory, TrollFactory, RandomEnemyFactory
 from patterns.creational.abstract_factory import MedievalFactionFactory, SciFiFactionFactory
+from patterns.creational.prototype import CharacterPrototype, PrototypeRegistry
 
 # Event listeners
 def on_damage(data):
@@ -43,9 +45,10 @@ def meniu():
     print("  3. Testează luptă simplă (manual)")
     print("  4. Arată toate log-urile")
     print("  5. Creează kit facțiune (Abstract Factory)")
+    print("  6. Creează inamic din prototip (Prototype)")
     print("  0. Ieșire")
     print("=" * 50)
-    return input("\nAlege opțiunea (0-5): ").strip()
+    return input("\nAlege opțiunea (0-6): ").strip()
 
 
 def main():
@@ -55,6 +58,21 @@ def main():
 
     erou = None
     inamic = None
+
+    # Registry de prototipuri pregătite o singură dată.
+    prototype_registry = PrototypeRegistry()
+    prototype_registry.register(
+        "goblin_elite",
+        CharacterPrototype(Character("Goblin Elite", 75))
+    )
+    prototype_registry.register(
+        "orc_berserker",
+        CharacterPrototype(Character("Orc Berserker", 130))
+    )
+    prototype_registry.register(
+        "troll_ancient",
+        CharacterPrototype(Character("Ancient Troll", 220))
+    )
 
     while True:
         optiune = meniu()
@@ -155,13 +173,40 @@ def main():
             afiseaza_status(enemy)
             print(f"Armă tipică: {weapon}")
 
+        elif optiune == "6":
+            print("\nPrototipuri disponibile:")
+            print("  ge - Goblin Elite")
+            print("  ob - Orc Berserker")
+            print("  ta - Ancient Troll")
+
+            alegere = input("Alege prototip (ge/ob/ta): ").strip().lower()
+            key_map = {
+                "ge": "goblin_elite",
+                "ob": "orc_berserker",
+                "ta": "troll_ancient",
+            }
+            key = key_map.get(alegere, "goblin_elite")
+
+            try:
+                inamic = prototype_registry.clone(key)
+            except KeyError:
+                print("Prototip invalid → folosim Goblin Elite implicit")
+                inamic = prototype_registry.clone("goblin_elite")
+
+            nou_nume = input("Nume pentru clonă (Enter = păstrează numele): ").strip()
+            if nou_nume:
+                inamic.name = nou_nume
+
+            print(f"\nInamic clonat din prototip: {inamic.name}")
+            afiseaza_status(inamic)
+
         elif optiune == "0":
             print("\nMulțumim că ai testat GoF Arena!")
             print("Ieșire...")
             break
 
         else:
-            print("\nOpțiune invalidă. Alege un număr între 0 și 5.")
+            print("\nOpțiune invalidă. Alege un număr între 0 și 6.")
 
 if __name__ == "__main__":
     main()

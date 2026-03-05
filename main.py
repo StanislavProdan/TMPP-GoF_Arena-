@@ -10,6 +10,7 @@ from game.entities import Character, event_bus
 from game.factories.enemy_factory import GoblinFactory, OrcFactory, TrollFactory, RandomEnemyFactory
 from patterns.creational.abstract_factory import MedievalFactionFactory, SciFiFactionFactory
 from patterns.creational.prototype import CharacterPrototype, PrototypeRegistry
+from patterns.creational.builder import CharacterBuilder
 
 # Event listeners
 def on_damage(data):
@@ -35,6 +36,32 @@ def afiseaza_status(personaj):
     print(f"  {personaj.name}: HP {personaj.hp}/{personaj.max_hp}")
 
 
+def demo_builder_integrity():
+    """Demonstrează că Builder setează description și își resetează starea."""
+    print("\n=== Demo Builder (corectitudine) ===")
+    builder = CharacterBuilder()
+
+    cavaler = (builder
+               .name("Demo Knight")
+               .max_hp(140)
+               .initial_hp(120)
+               .description("Erou construit fluent")
+               .build())
+
+    # Dacă reset-ul funcționează, al doilea build pornește din valorile implicite.
+    implicit_char = builder.build()
+
+    print("Primul personaj (configurat):")
+    print(f"  Nume: {cavaler.name}")
+    print(f"  HP: {cavaler.hp}/{cavaler.max_hp}")
+    print(f"  Description: {cavaler.description or '(gol)'}")
+
+    print("Al doilea personaj (după reset builder):")
+    print(f"  Nume: {implicit_char.name}")
+    print(f"  HP: {implicit_char.hp}/{implicit_char.max_hp}")
+    print(f"  Description: {implicit_char.description or '(gol)'}")
+
+
 def meniu():
     """Afișează meniul principal și returnează opțiunea aleasă."""
     print("\n" + "=" * 50)
@@ -46,9 +73,10 @@ def meniu():
     print("  4. Arată toate log-urile")
     print("  5. Creează kit facțiune (Abstract Factory)")
     print("  6. Creează inamic din prototip (Prototype)")
+    print("  7. Demo Builder (description + reset)")
     print("  0. Ieșire")
     print("=" * 50)
-    return input("\nAlege opțiunea (0-6): ").strip()
+    return input("\nAlege opțiunea (0-7): ").strip()
 
 
 def main():
@@ -199,13 +227,16 @@ def main():
             print(f"\nInamic clonat din prototip: {inamic.name}")
             afiseaza_status(inamic)
 
+        elif optiune == "7":
+            demo_builder_integrity()
+
         elif optiune == "0":
             print("\nMulțumim că ai testat GoF Arena!")
             print("Ieșire...")
             break
 
         else:
-            print("\nOpțiune invalidă. Alege un număr între 0 și 6.")
+            print("\nOpțiune invalidă. Alege un număr între 0 și 7.")
 
 if __name__ == "__main__":
     main()

@@ -3,15 +3,20 @@
 # Ensures only one instance of Logger exists throughout the application
 
 from datetime import datetime
+from threading import Lock
 
 class Logger:
     _instance = None
+    _lock = Lock()
 
     def __new__(cls):
         if cls._instance is None:
-            print("[Singleton] Creez instanța unică a Logger...")
-            cls._instance = super().__new__(cls)
-            cls._instance.messages = []
+            # Double-checked locking evită crearea a două instanțe în multi-threading.
+            with cls._lock:
+                if cls._instance is None:
+                    print("[Singleton] Creez instanța unică a Logger...")
+                    cls._instance = super().__new__(cls)
+                    cls._instance.messages = []
         return cls._instance
 
     def log(self, message: str, level: str = "INFO"):

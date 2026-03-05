@@ -6,6 +6,9 @@ from game.entities import Character
 
 class CharacterBuilder:
     def __init__(self):
+        self._reset()
+
+    def _reset(self):
         self._name = "Unnamed"
         self._max_hp = 100
         self._initial_hp = None
@@ -33,6 +36,6 @@ class CharacterBuilder:
         hp = self._initial_hp if self._initial_hp is not None else self._max_hp
         char = Character(self._name, self._max_hp)
         char.hp = hp  # suprascriem hp-ul inițial dacă e diferit
-        if self._description:
-            print(f"Descriere: {self._description}")
+        char.description = self._description
+        self._reset()
         return char

@@ -1,6 +1,6 @@
 # GoF Arena
 
-Simulator text-based de lupte RPG în Python pentru demonstrarea celor 23 pattern-uri de design Gang of Four (GoF).
+Simulator RPG in Python pentru demonstrarea pattern-urilor GoF, acum cu interfata grafica (Tkinter) si mod consola.
 
 ## Pattern-uri implementate până acum
 - **Singleton** - `utils/logger.py` - Ensure only one Logger instance exists globally
@@ -18,6 +18,7 @@ TMPP(GoF_Arena)/
 │   ├── __init__.py
 │   ├── entities.py      # Character class
 │   ├── events.py        # Observer pattern - EventBus
+│   ├── gui.py           # Interfata grafica Tkinter
 │   └── factories/
 │       ├── __init__.py
 │       └── enemy_factory.py  # Factory Method pattern
@@ -35,10 +36,13 @@ TMPP(GoF_Arena)/
 
 ## Cum rulezi
 ```bash
-# Din rădăcina proiectului
-cd TMPP(GoF_Arena)
+# Din radacina proiectului
 python main.py
 ```
+
+### Moduri de rulare
+- `python main.py` - porneste interfata grafica (GUI)
+- `python main.py --console` - porneste meniul text din terminal
 
 ## Caracteristici recente (Feb 16, 2026)
 - ✅ Implementat Abstract Factory pattern în `patterns/creational/abstract_factory.py`

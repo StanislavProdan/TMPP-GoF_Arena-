@@ -1,0 +1,17 @@
+GoF Arena - Match Report
+Time: 2026-03-06 14:00:46
+Winner: Sir Arthur
+Defeated: Goblin Raider
+Rounds: 4
+
+Hero Stats
+Damage dealt: 73
+Damage taken: 48
+Total heal: 0
+
+Recent Combat History
+- Quick hit: Sir Arthur 16
+- Retaliate: Goblin Raider 16
+- Quick hit: Sir Arthur 18
+- Retaliate: Goblin Raider 11
+- WIN: Sir Arthur defeated Goblin Raider

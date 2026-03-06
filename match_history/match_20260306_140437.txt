@@ -1,0 +1,17 @@
+GoF Arena - Match Report
+Time: 2026-03-06 14:04:37
+Winner: da
+Defeated: Orc Warrior
+Rounds: 7
+
+Hero Stats
+Damage dealt: 96
+Damage taken: 68
+Total heal: 0
+
+Recent Combat History
+- da attack: 12
+- da attack: 12
+- Orc Warrior counter: 13
+- Orc Warrior counter: 7
+- WIN: da defeated Orc Warrior

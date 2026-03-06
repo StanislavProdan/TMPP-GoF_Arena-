@@ -1,0 +1,17 @@
+GoF Arena - Match Report
+Time: 2026-03-06 14:08:00
+Winner: Sir Arthur
+Defeated: 14
+Rounds: 7
+
+Hero Stats
+Damage dealt: 84
+Damage taken: 63
+Total heal: 10
+
+Recent Combat History
+- Sir Arthur attack: 12
+- 14 counter: 8
+- Sir Arthur attack: 12
+- 14 counter: 13
+- WIN: Sir Arthur defeated 14

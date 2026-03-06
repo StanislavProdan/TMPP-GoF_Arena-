@@ -5,9 +5,12 @@
 # - Factory Method: EnemyFactory subclasses for creating enemy instances
 # - Prototype: clonare rapidă pe baza unor prototipuri predefinite
 
+import sys
+
 from utils.logger import logger
 from game.entities import Character, event_bus
 from game.factories.enemy_factory import GoblinFactory, OrcFactory, TrollFactory, RandomEnemyFactory
+from game.gui import run_gui
 from patterns.creational.abstract_factory import MedievalFactionFactory, SciFiFactionFactory
 from patterns.creational.prototype import CharacterPrototype, PrototypeRegistry
 from patterns.creational.builder import CharacterBuilder
@@ -24,12 +27,6 @@ def on_death(data):
 def on_heal(data):
     c = data["character"]
     print(f"  → {c.name} s-a vindecat cu {data['amount']}! HP acum: {data['new_hp']}")
-
-# Înregistrăm ascultătorii o singură dată la pornire
-event_bus.subscribe("damage_taken", on_damage)
-event_bus.subscribe("death", on_death)
-event_bus.subscribe("healed", on_heal)
-
 
 def afiseaza_status(personaj):
     """Afișează status-ul curent al unui personaj."""
@@ -79,7 +76,12 @@ def meniu():
     return input("\nAlege opțiunea (0-7): ").strip()
 
 
-def main():
+def run_console():
+    # In console mode, print game events to stdout.
+    event_bus.subscribe("damage_taken", on_damage)
+    event_bus.subscribe("death", on_death)
+    event_bus.subscribe("healed", on_heal)
+
     print("=== GoF Arena - Design Patterns Showcase ===")
     print("Scop: demonstrarea celor 22 pattern-uri GoF într-un simulator text-based\n")
 
@@ -239,4 +241,7 @@ def main():
             print("\nOpțiune invalidă. Alege un număr între 0 și 7.")
 
 if __name__ == "__main__":
-    main()
+    if "--console" in sys.argv:
+        run_console()
+    else:
+        run_gui()

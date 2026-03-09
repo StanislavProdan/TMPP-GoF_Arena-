@@ -4,6 +4,7 @@
 # - Observer: event_bus for subscribing to game events
 # - Factory Method: EnemyFactory subclasses for creating enemy instances
 # - Prototype: clonare rapidă pe baza unor prototipuri predefinite
+# - Adapter / Composite / Facade: pattern-uri structurale pentru integrare și orchestration
 
 import sys
 
@@ -14,6 +15,7 @@ from game.gui import run_gui
 from patterns.creational.abstract_factory import MedievalFactionFactory, SciFiFactionFactory
 from patterns.creational.prototype import CharacterPrototype, PrototypeRegistry
 from patterns.creational.builder import CharacterBuilder
+from patterns.structural import ArenaFacade, CharacterLeaf, LegacyEnemy, LegacyEnemyAdapter, Squad
 
 # Event listeners
 def on_damage(data):
@@ -59,6 +61,74 @@ def demo_builder_integrity():
     print(f"  Description: {implicit_char.description or '(gol)'}")
 
 
+def demo_adapter_pattern():
+    """Demonstrează adaptarea unui inamic legacy la API-ul Character."""
+    print("\n=== Demo Adapter ===")
+    legacy_enemy = LegacyEnemy("Retro Drone", 80)
+    adapted_enemy = LegacyEnemyAdapter(legacy_enemy)
+
+    print(f"Inamic legacy adaptat: {adapted_enemy.name}")
+    print(f"HP inițial: {adapted_enemy.hp}/{adapted_enemy.max_hp}")
+
+    adapted_enemy.take_damage(22)
+    adapted_enemy.heal(7)
+
+    print("După acțiuni prin interfața Character:")
+    afiseaza_status(adapted_enemy)
+
+
+def demo_composite_pattern():
+    """Demonstrează calcul agregat pe grupuri de personaje."""
+    print("\n=== Demo Composite ===")
+
+    alpha = Squad("Alpha Team")
+    alpha.add(CharacterLeaf(Character("Knight", 120)))
+    alpha.add(CharacterLeaf(Character("Archer", 85)))
+
+    beta = Squad("Beta Team")
+    beta.add(CharacterLeaf(Character("Orc Grunt", 95)))
+    beta.add(CharacterLeaf(Character("Goblin Sneak", 55)))
+
+    battalion = Squad("Alliance Battalion")
+    battalion.add(alpha)
+    battalion.add(beta)
+
+    print(alpha.describe())
+    print(beta.describe())
+    print("Structură compusă:")
+    print(battalion.describe())
+
+
+def demo_facade_pattern():
+    """Demonstrează API simplificat pentru setup + round de luptă."""
+    print("\n=== Demo Facade ===")
+    facade = ArenaFacade()
+
+    hero_name = input("Nume erou (Enter = 'Facade Hero'): ").strip() or "Facade Hero"
+    try:
+        hero_hp = int(input("HP erou (Enter = 110): ") or 110)
+    except ValueError:
+        hero_hp = 110
+
+    enemy_type = input("Tip inamic (goblin/orc/troll/random): ").strip().lower() or "random"
+    hero, enemy = facade.setup_duel(hero_name=hero_name, hero_hp=hero_hp, enemy_type=enemy_type)
+
+    print(f"Duel inițializat: {hero.name} vs {enemy.name}")
+    try:
+        hero_dmg = int(input("Damage erou (Enter = 12): ") or 12)
+    except ValueError:
+        hero_dmg = 12
+    try:
+        enemy_dmg = int(input("Damage inamic (Enter = 8): ") or 8)
+    except ValueError:
+        enemy_dmg = 8
+
+    summary = facade.execute_round(hero_dmg, enemy_dmg)
+    print("Rezumat round (prin Facade):")
+    print(f"  {summary['hero']}")
+    print(f"  {summary['enemy']}")
+
+
 def meniu():
     """Afișează meniul principal și returnează opțiunea aleasă."""
     print("\n" + "=" * 50)
@@ -71,9 +141,12 @@ def meniu():
     print("  5. Creează kit facțiune (Abstract Factory)")
     print("  6. Creează inamic din prototip (Prototype)")
     print("  7. Demo Builder (description + reset)")
+    print("  8. Demo Adapter (legacy enemy)")
+    print("  9. Demo Composite (squad)")
+    print(" 10. Demo Facade (duel orchestration)")
     print("  0. Ieșire")
     print("=" * 50)
-    return input("\nAlege opțiunea (0-7): ").strip()
+    return input("\nAlege opțiunea (0-10): ").strip()
 
 
 def run_console():
@@ -232,13 +305,22 @@ def run_console():
         elif optiune == "7":
             demo_builder_integrity()
 
+        elif optiune == "8":
+            demo_adapter_pattern()
+
+        elif optiune == "9":
+            demo_composite_pattern()
+
+        elif optiune == "10":
+            demo_facade_pattern()
+
         elif optiune == "0":
             print("\nMulțumim că ai testat GoF Arena!")
             print("Ieșire...")
             break
 
         else:
-            print("\nOpțiune invalidă. Alege un număr între 0 și 7.")
+            print("\nOpțiune invalidă. Alege un număr între 0 și 10.")
 
 if __name__ == "__main__":
     if "--console" in sys.argv:

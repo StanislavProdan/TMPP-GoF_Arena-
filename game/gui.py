@@ -19,6 +19,7 @@ from game.factories.enemy_factory import (
 from patterns.creational.abstract_factory import MedievalFactionFactory, SciFiFactionFactory
 from patterns.creational.builder import CharacterBuilder
 from patterns.creational.prototype import CharacterPrototype, PrototypeRegistry
+from patterns.structural import ArenaFacade, CharacterLeaf, LegacyEnemy, LegacyEnemyAdapter, Squad
 
 
 class GoFArenaGUI:
@@ -184,6 +185,9 @@ class GoFArenaGUI:
         ttk.Button(controls, text="6) Clone Prototype", command=self.clone_prototype_enemy).pack(fill="x", padx=8, pady=(0, 6))
 
         ttk.Button(controls, text="7) Builder Demo", command=self.demo_builder_integrity).pack(fill="x", padx=8, pady=4)
+        ttk.Button(controls, text="8) Adapter Demo", command=self.demo_adapter_pattern).pack(fill="x", padx=8, pady=4)
+        ttk.Button(controls, text="9) Composite Demo", command=self.demo_composite_pattern).pack(fill="x", padx=8, pady=4)
+        ttk.Button(controls, text="10) Facade Demo", command=self.demo_facade_pattern).pack(fill="x", padx=8, pady=4)
         ttk.Button(controls, text="Reset Match", command=self.reset_match).pack(fill="x", padx=8, pady=4)
 
         ttk.Separator(controls, orient="horizontal").pack(fill="x", padx=8, pady=8)
@@ -841,6 +845,85 @@ class GoFArenaGUI:
         self._append_log("Builder demo executed. See popup for details.")
         self._add_history("Builder demo run")
         messagebox.showinfo("Builder Demo", output)
+
+    def demo_adapter_pattern(self):
+        legacy_enemy = LegacyEnemy("Retro Drone", 80)
+        self.enemy = LegacyEnemyAdapter(legacy_enemy)
+
+        self._reset_match_progress(clear_feed=False)
+        self._append_log("Adapter demo: legacy enemy wrapped to Character API")
+        self._append_log(f"Adapted enemy: {self.enemy.name} ({self.enemy.hp}/{self.enemy.max_hp})")
+        self._add_history(f"Adapter enemy: {self.enemy.name}")
+        logger.log("Adapter demo executed", "INFO")
+        self.last_action_var.set(f"Last action: Adapter created {self.enemy.name}")
+        self._update_status()
+
+    def demo_composite_pattern(self):
+        alpha = Squad("Alpha Team")
+        alpha.add(CharacterLeaf(Character("Knight", 120)))
+        alpha.add(CharacterLeaf(Character("Archer", 85)))
+
+        beta = Squad("Beta Team")
+        beta.add(CharacterLeaf(Character("Orc Grunt", 95)))
+        beta.add(CharacterLeaf(Character("Goblin Sneak", 55)))
+
+        battalion = Squad("Alliance Battalion")
+        battalion.add(alpha)
+        battalion.add(beta)
+
+        output = (
+            "Composite Demo\n\n"
+            f"{alpha.describe()}\n"
+            f"{beta.describe()}\n\n"
+            f"Combined: {battalion.describe()}"
+        )
+
+        self._append_log("Composite demo: squads aggregated recursively")
+        self._add_history("Composite squad demo")
+        logger.log("Composite demo executed", "INFO")
+        messagebox.showinfo("Composite Demo", output)
+
+    def demo_facade_pattern(self):
+        facade = ArenaFacade()
+
+        hero_name = simpledialog.askstring("Facade Demo", "Hero name:", initialvalue="Facade Hero", parent=self.root)
+        if hero_name is None:
+            return
+        hero_name = hero_name.strip() or "Facade Hero"
+
+        hero_hp = simpledialog.askinteger("Facade Demo", "Hero HP:", initialvalue=110, minvalue=1, parent=self.root)
+        if hero_hp is None:
+            return
+
+        enemy_type = simpledialog.askstring(
+            "Facade Demo",
+            "Enemy type (goblin/orc/troll/random):",
+            initialvalue="random",
+            parent=self.root,
+        )
+        if enemy_type is None:
+            return
+        enemy_type = enemy_type.strip().lower() or "random"
+
+        self.hero, self.enemy = facade.setup_duel(hero_name, hero_hp, enemy_type)
+        self._reset_match_progress(clear_feed=False)
+
+        hero_dmg = simpledialog.askinteger("Facade Demo", "Hero damage:", initialvalue=12, minvalue=0, parent=self.root)
+        if hero_dmg is None:
+            return
+        enemy_dmg = simpledialog.askinteger("Facade Demo", "Enemy damage:", initialvalue=8, minvalue=0, parent=self.root)
+        if enemy_dmg is None:
+            return
+
+        summary = facade.execute_round(hero_dmg, enemy_dmg)
+        self.round_count += 1
+        self.round_var.set(f"Round: {self.round_count}")
+        self.last_action_var.set("Last action: Facade round executed")
+
+        self._append_log(f"Facade duel: {summary['hero']} | {summary['enemy']}")
+        self._add_history("Facade demo round")
+        logger.log("Facade demo executed", "INFO")
+        self._update_status()
 
 
 def run_gui():

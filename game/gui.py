@@ -19,7 +19,23 @@ from game.factories.enemy_factory import (
 from patterns.creational.abstract_factory import MedievalFactionFactory, SciFiFactionFactory
 from patterns.creational.builder import CharacterBuilder
 from patterns.creational.prototype import CharacterPrototype, PrototypeRegistry
-from patterns.structural import ArenaFacade, CharacterLeaf, LegacyEnemy, LegacyEnemyAdapter, Squad
+from patterns.structural import (
+    ArenaFacade,
+    Blaster,
+    BlessingDecorator,
+    CharacterLeaf,
+    EnergyDamage,
+    EnemyFlyweightFactory,
+    LegacyEnemy,
+    LegacyEnemyAdapter,
+    MatchHistoryProxy,
+    PhysicalDamage,
+    PiercingDamage,
+    ShieldDecorator,
+    Squad,
+    Spear,
+    Sword,
+)
 
 
 class GoFArenaGUI:
@@ -38,11 +54,14 @@ class GoFArenaGUI:
         self.hero_anchor = (140, 120)
         self.enemy_anchor = (420, 120)
         self._active_scroll_target = None
+        self._hero_buff_state = {"shield": 0, "blessing": 0}
 
         self.prototype_registry = PrototypeRegistry()
         self.prototype_registry.register("goblin_elite", CharacterPrototype(Character("Goblin Elite", 75)))
         self.prototype_registry.register("orc_berserker", CharacterPrototype(Character("Orc Berserker", 130)))
         self.prototype_registry.register("troll_ancient", CharacterPrototype(Character("Ancient Troll", 220)))
+        self.flyweight_factory = EnemyFlyweightFactory()
+        self.history_proxy = MatchHistoryProxy("match_history")
 
         self._configure_style()
         self._build_layout()
@@ -162,6 +181,30 @@ class GoFArenaGUI:
         ttk.Button(controls, text="Quick Duel (random)", command=self.quick_duel).pack(fill="x", padx=8, pady=4)
         ttk.Button(controls, text="4) Show Logs", command=self.show_logs).pack(fill="x", padx=8, pady=4)
 
+        ttk.Separator(controls, orient="horizontal").pack(fill="x", padx=8, pady=8)
+        ttk.Label(controls, text="Hero Weapon:").pack(anchor="w", padx=8, pady=(0, 0))
+        self.hero_weapon_kind = tk.StringVar(value="Sword")
+        ttk.Combobox(
+            controls,
+            textvariable=self.hero_weapon_kind,
+            values=["Sword", "Blaster", "Spear"],
+            state="readonly",
+            width=24,
+        ).pack(fill="x", padx=8, pady=(2, 4))
+
+        ttk.Label(controls, text="Damage mode:").pack(anchor="w", padx=8, pady=(0, 0))
+        self.hero_damage_mode = tk.StringVar(value="Physical")
+        ttk.Combobox(
+            controls,
+            textvariable=self.hero_damage_mode,
+            values=["Physical", "Energy", "Piercing"],
+            state="readonly",
+            width=24,
+        ).pack(fill="x", padx=8, pady=(2, 4))
+
+        ttk.Button(controls, text="Apply Shield to Hero", command=self.apply_hero_shield).pack(fill="x", padx=8, pady=(0, 4))
+        ttk.Button(controls, text="Apply Blessing to Hero", command=self.apply_hero_blessing).pack(fill="x", padx=8, pady=(0, 6))
+
         self.faction_var = tk.StringVar(value="Medieval")
         ttk.Label(controls, text="Faction:").pack(anchor="w", padx=8, pady=(4, 0))
         ttk.Combobox(
@@ -188,6 +231,10 @@ class GoFArenaGUI:
         ttk.Button(controls, text="8) Adapter Demo", command=self.demo_adapter_pattern).pack(fill="x", padx=8, pady=4)
         ttk.Button(controls, text="9) Composite Demo", command=self.demo_composite_pattern).pack(fill="x", padx=8, pady=4)
         ttk.Button(controls, text="10) Facade Demo", command=self.demo_facade_pattern).pack(fill="x", padx=8, pady=4)
+        ttk.Button(controls, text="11) Flyweight Demo", command=self.demo_flyweight_pattern).pack(fill="x", padx=8, pady=4)
+        ttk.Button(controls, text="12) Decorator Demo", command=self.demo_decorator_pattern).pack(fill="x", padx=8, pady=4)
+        ttk.Button(controls, text="13) Bridge Demo", command=self.demo_bridge_pattern).pack(fill="x", padx=8, pady=4)
+        ttk.Button(controls, text="14) Proxy Demo", command=self.demo_proxy_pattern).pack(fill="x", padx=8, pady=4)
         ttk.Button(controls, text="Reset Match", command=self.reset_match).pack(fill="x", padx=8, pady=4)
 
         ttk.Separator(controls, orient="horizontal").pack(fill="x", padx=8, pady=8)
@@ -534,17 +581,97 @@ class GoFArenaGUI:
             return False
         return True
 
+    def _unwrap_combatant(self, fighter):
+        current = fighter
+        while hasattr(current, "_character"):
+            current = current._character
+        return current
+
+    def _is_same_combatant(self, left, right) -> bool:
+        if left is None or right is None:
+            return False
+        return self._unwrap_combatant(left) is self._unwrap_combatant(right)
+
+    def _current_damage_mode(self):
+        mode_name = self.hero_damage_mode.get()
+        if mode_name == "Energy":
+            return EnergyDamage()
+        if mode_name == "Piercing":
+            return PiercingDamage()
+        return PhysicalDamage()
+
+    def _current_weapon(self, base_damage: int):
+        weapon_name = self.hero_weapon_kind.get()
+        damage_mode = self._current_damage_mode()
+        weapons = {
+            "Sword": Sword,
+            "Blaster": Blaster,
+            "Spear": Spear,
+        }
+        weapon_cls = weapons.get(weapon_name, Sword)
+        return weapon_cls(f"{weapon_name} of the Arena", base_damage, damage_mode)
+
+    def _apply_decorator_damage(self, effect: str, value: int):
+        if not self.hero:
+            messagebox.showwarning("Missing characters", "Create a hero first.")
+            return False
+
+        if effect == "shield":
+            self.hero = ShieldDecorator(self.hero, shield_value=value)
+            self._hero_buff_state["shield"] = value
+            self._append_log(f"Hero shield applied: -{value} incoming damage")
+            self._add_history(f"Hero shield: {value}")
+            self.last_action_var.set(f"Last action: Shield applied to {self.hero.name}")
+        else:
+            self.hero = BlessingDecorator(self.hero, healing_bonus=value)
+            self._hero_buff_state["blessing"] = value
+            self._append_log(f"Hero blessing applied: +{value} healing")
+            self._add_history(f"Hero blessing: {value}")
+            self.last_action_var.set(f"Last action: Blessing applied to {self.hero.name}")
+
+        logger.log(f"Hero decorated with {effect}={value}", "INFO")
+        self._update_status()
+        return True
+
+    def apply_hero_shield(self):
+        if not self._battle_ready() and not self.hero:
+            return
+        shield_value = simpledialog.askinteger(
+            "Hero Shield",
+            "Shield value (damage reduction):",
+            initialvalue=5,
+            minvalue=1,
+            parent=self.root,
+        )
+        if shield_value is None:
+            return
+        self._apply_decorator_damage("shield", shield_value)
+
+    def apply_hero_blessing(self):
+        if not self._battle_ready() and not self.hero:
+            return
+        blessing_value = simpledialog.askinteger(
+            "Hero Blessing",
+            "Healing bonus:",
+            initialvalue=4,
+            minvalue=1,
+            parent=self.root,
+        )
+        if blessing_value is None:
+            return
+        self._apply_decorator_damage("blessing", blessing_value)
+
     def _announce_winner_if_needed(self, defeated: Character):
         if defeated.hp > 0:
             return
-        marker = f"{defeated.name}:{self.round_count}"
+        marker = f"{self._unwrap_combatant(defeated).name}:{self.round_count}"
         if self._winner_shown_for == marker:
             return
         self._winner_shown_for = marker
 
-        if self.hero and defeated is self.enemy:
+        if self._is_same_combatant(defeated, self.enemy):
             winner = self.hero.name
-        elif self.enemy and defeated is self.hero:
+        elif self._is_same_combatant(defeated, self.hero):
             winner = self.enemy.name
         else:
             winner = "Unknown"
@@ -561,14 +688,14 @@ class GoFArenaGUI:
         c = data["character"]
         amount = int(data.get("amount", 0))
         self._append_log(f"-> {c.name} takes {data['amount']} dmg. Remaining HP: {data['remaining_hp']}")
-        if self.hero and c is self.hero:
+        if self._is_same_combatant(c, self.hero):
             self.hero_damage_taken += amount
-        if self.enemy and c is self.enemy:
+        if self._is_same_combatant(c, self.enemy):
             self.hero_damage_dealt += amount
         self._update_stats()
-        if self.hero and c is self.hero:
+        if self._is_same_combatant(c, self.hero):
             self._flash_hit(self.hero_hp_canvas)
-        elif self.enemy and c is self.enemy:
+        elif self._is_same_combatant(c, self.enemy):
             self._flash_hit(self.enemy_hp_canvas)
         self._update_status()
 
@@ -582,11 +709,11 @@ class GoFArenaGUI:
         c = data["character"]
         amount = int(data.get("amount", 0))
         self._append_log(f"-> {c.name} heals {data['amount']}. HP now: {data['new_hp']}")
-        if self.hero and c is self.hero:
+        if self._is_same_combatant(c, self.hero):
             self.hero_total_heal += amount
             self._update_stats()
             self._animate_heal("hero")
-        elif self.enemy and c is self.enemy:
+        elif self._is_same_combatant(c, self.enemy):
             self._animate_heal("enemy")
         self._update_status()
 
@@ -654,10 +781,11 @@ class GoFArenaGUI:
         if dmg is None:
             return
 
+        weapon = self._current_weapon(dmg)
         self._animate_strike("hero")
-        self.enemy.take_damage(dmg)
-        self.last_action_var.set(f"Last action: {self.hero.name} strikes for {dmg}")
-        self._add_history(f"{self.hero.name} attack: {dmg}")
+        dealt = weapon.strike(self.hero, self.enemy)
+        self.last_action_var.set(f"Last action: {self.hero.name} strikes with {weapon.name} for {dealt}")
+        self._add_history(f"{self.hero.name} attack: {dealt} via {weapon.name}")
 
         if self.enemy.hp > 0:
             counter = random.randint(5, 14)
@@ -713,10 +841,11 @@ class GoFArenaGUI:
             return
 
         if hero_dmg > 0:
+            weapon = self._current_weapon(hero_dmg)
             self._animate_strike("hero")
-            self.enemy.take_damage(hero_dmg)
-            self.last_action_var.set(f"Last action: {self.hero.name} hits for {hero_dmg}")
-            self._add_history(f"Round hit: {self.hero.name} {hero_dmg}")
+            dealt = weapon.strike(self.hero, self.enemy)
+            self.last_action_var.set(f"Last action: {self.hero.name} hits with {weapon.name} for {dealt}")
+            self._add_history(f"Round hit: {self.hero.name} {dealt} via {weapon.name}")
         else:
             self._append_log("Hero attack skipped.")
 
@@ -748,10 +877,11 @@ class GoFArenaGUI:
             return
 
         hero_dmg = random.randint(6, 20)
+        weapon = self._current_weapon(hero_dmg)
         self._animate_strike("hero")
-        self.enemy.take_damage(hero_dmg)
-        self.last_action_var.set(f"Last action: {self.hero.name} quick-hit for {hero_dmg}")
-        self._add_history(f"Quick hit: {self.hero.name} {hero_dmg}")
+        dealt = weapon.strike(self.hero, self.enemy)
+        self.last_action_var.set(f"Last action: {self.hero.name} quick-hit with {weapon.name} for {dealt}")
+        self._add_history(f"Quick hit: {self.hero.name} {dealt} via {weapon.name}")
 
         if self.enemy.hp > 0:
             enemy_dmg = random.randint(5, 16)
@@ -770,6 +900,7 @@ class GoFArenaGUI:
             self.hero.hp = self.hero.max_hp
         if self.enemy:
             self.enemy.hp = self.enemy.max_hp
+        self._hero_buff_state = {"shield": 0, "blessing": 0}
         self._reset_match_progress(clear_feed=True)
         self._update_status()
 
@@ -924,6 +1055,88 @@ class GoFArenaGUI:
         self._add_history("Facade demo round")
         logger.log("Facade demo executed", "INFO")
         self._update_status()
+
+    def demo_flyweight_pattern(self):
+        goblin_one = self.flyweight_factory.create_enemy("goblin", "Goblin Scout A")
+        goblin_two = self.flyweight_factory.create_enemy("goblin", "Goblin Scout B")
+        orc_one = self.flyweight_factory.create_enemy("orc", "Orc Patrol")
+
+        output = (
+            "Flyweight Demo\n\n"
+            f"Cache size: {self.flyweight_factory.cache_size()} ({', '.join(self.flyweight_factory.cached_keys())})\n"
+            f"{goblin_one.name}: {goblin_one.hp}/{goblin_one.max_hp}\n"
+            f"{goblin_two.name}: {goblin_two.hp}/{goblin_two.max_hp}\n"
+            f"{orc_one.name}: {orc_one.hp}/{orc_one.max_hp}\n"
+            "Shared state is reused through the flyweight factory."
+        )
+
+        self._append_log("Flyweight demo executed")
+        self._add_history("Flyweight demo")
+        logger.log("Flyweight demo executed", "INFO")
+        messagebox.showinfo("Flyweight Demo", output)
+
+    def demo_decorator_pattern(self):
+        hero = Character("Decorated Hero", 100)
+        shielded = ShieldDecorator(hero, shield_value=8)
+        blessed = BlessingDecorator(shielded, healing_bonus=6)
+
+        blessed.take_damage(30)
+        blessed.heal(10)
+
+        output = (
+            "Decorator Demo\n\n"
+            f"Final status: {blessed.name} {blessed.hp}/{blessed.max_hp}\n"
+            f"Description: {blessed.description or '(empty)'}\n"
+            "ShieldDecorator reduced incoming damage and BlessingDecorator increased healing."
+        )
+
+        self._append_log("Decorator demo executed")
+        self._add_history("Decorator demo")
+        logger.log("Decorator demo executed", "INFO")
+        messagebox.showinfo("Decorator Demo", output)
+
+    def demo_bridge_pattern(self):
+        hero = Character("Bridge Knight", 120)
+        dummy = Character("Bridge Dummy", 140)
+
+        sword = Sword("Lionheart Sword", 18, PhysicalDamage())
+        blaster = Blaster("Arc Pulse Blaster", 16, EnergyDamage())
+        spear = Spear("Storm Spear", 14, PiercingDamage())
+
+        sword.strike(hero, dummy)
+        blaster.strike(hero, dummy)
+        spear.strike(hero, dummy)
+
+        output = (
+            "Bridge Demo\n\n"
+            f"{sword.describe()}\n"
+            f"{blaster.describe()}\n"
+            f"{spear.describe()}\n\n"
+            f"Target after strikes: {dummy.name} {dummy.hp}/{dummy.max_hp}\n"
+            "Weapon abstraction is decoupled from damage mode implementors."
+        )
+
+        self._append_log("Bridge demo executed")
+        self._add_history("Bridge demo")
+        logger.log("Bridge demo executed", "INFO")
+        messagebox.showinfo("Bridge Demo", output)
+
+    def demo_proxy_pattern(self):
+        matches = self.history_proxy.latest_matches(3)
+        if not matches:
+            messagebox.showinfo("Proxy Demo", "No match history files found.")
+            return
+
+        lines = ["Proxy Demo", "", f"Cache loaded: {self.history_proxy.cache_loaded}"]
+        for match in matches:
+            lines.append(match.name)
+            lines.append(self.history_proxy.preview(match, 5))
+            lines.append("---")
+
+        self._append_log("Proxy demo executed")
+        self._add_history("Proxy demo")
+        logger.log("Proxy demo executed", "INFO")
+        messagebox.showinfo("Proxy Demo", "\n".join(lines))
 
 
 def run_gui():

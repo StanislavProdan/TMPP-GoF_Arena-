@@ -4,9 +4,10 @@
 # - Observer: event_bus for subscribing to game events
 # - Factory Method: EnemyFactory subclasses for creating enemy instances
 # - Prototype: clonare rapidă pe baza unor prototipuri predefinite
-# - Adapter / Composite / Facade: pattern-uri structurale pentru integrare și orchestration
+# - Adapter / Composite / Facade / Flyweight / Decorator / Bridge / Proxy: pattern-uri structurale pentru integrare și orchestration
 
 import sys
+from pathlib import Path
 
 from utils.logger import logger
 from game.entities import Character, event_bus
@@ -15,7 +16,23 @@ from game.gui import run_gui
 from patterns.creational.abstract_factory import MedievalFactionFactory, SciFiFactionFactory
 from patterns.creational.prototype import CharacterPrototype, PrototypeRegistry
 from patterns.creational.builder import CharacterBuilder
-from patterns.structural import ArenaFacade, CharacterLeaf, LegacyEnemy, LegacyEnemyAdapter, Squad
+from patterns.structural import (
+    ArenaFacade,
+    Blaster,
+    BlessingDecorator,
+    CharacterLeaf,
+    EnergyDamage,
+    EnemyFlyweightFactory,
+    LegacyEnemy,
+    LegacyEnemyAdapter,
+    MatchHistoryProxy,
+    PhysicalDamage,
+    PiercingDamage,
+    ShieldDecorator,
+    Squad,
+    Spear,
+    Sword,
+)
 
 # Event listeners
 def on_damage(data):
@@ -33,6 +50,25 @@ def on_heal(data):
 def afiseaza_status(personaj):
     """Afișează status-ul curent al unui personaj."""
     print(f"  {personaj.name}: HP {personaj.hp}/{personaj.max_hp}")
+
+
+def construieste_arma(nume_arma: str, base_damage: int, damage_mode: str):
+    mode = damage_mode.strip().lower()
+    if mode == "energy":
+        implementor = EnergyDamage()
+    elif mode == "piercing":
+        implementor = PiercingDamage()
+    else:
+        implementor = PhysicalDamage()
+
+    weapon_name = nume_arma.strip().lower()
+    weapon_map = {
+        "sword": Sword,
+        "blaster": Blaster,
+        "spear": Spear,
+    }
+    weapon_cls = weapon_map.get(weapon_name, Sword)
+    return weapon_cls(f"{weapon_cls.__name__} of the Arena", base_damage, implementor)
 
 
 def demo_builder_integrity():
@@ -129,6 +165,82 @@ def demo_facade_pattern():
     print(f"  {summary['enemy']}")
 
 
+def demo_flyweight_pattern():
+    """Demonstrează reutilizarea stării partajate pentru mulți inamici."""
+    print("\n=== Demo Flyweight ===")
+    factory = EnemyFlyweightFactory()
+
+    goblin_one = factory.create_enemy("goblin", "Goblin Scout A")
+    goblin_two = factory.create_enemy("goblin", "Goblin Scout B")
+    orc_one = factory.create_enemy("orc", "Orc Patrol")
+
+    print(f"Cache flyweights: {factory.cache_size()} ({', '.join(factory.cached_keys())})")
+    print(f"{goblin_one.name}: {goblin_one.hp}/{goblin_one.max_hp} | archetype id={id(factory.get('goblin', 'Goblin', 50, 'shared'))}")
+    print(f"{goblin_two.name}: {goblin_two.hp}/{goblin_two.max_hp} | archetype id={id(factory.get('goblin', 'Goblin', 50, 'shared'))}")
+    print(f"{orc_one.name}: {orc_one.hp}/{orc_one.max_hp}")
+
+
+def demo_decorator_pattern():
+    """Demonstrează decorarea unui personaj cu efecte suprapuse."""
+    print("\n=== Demo Decorator ===")
+    hero = Character("Decorated Hero", 100)
+    shielded = ShieldDecorator(hero, shield_value=8)
+    blessed = BlessingDecorator(shielded, healing_bonus=6)
+
+    print("Status inițial:")
+    afiseaza_status(blessed)
+
+    print("Atac de 30 dmg prin ShieldDecorator:")
+    blessed.take_damage(30)
+    afiseaza_status(blessed)
+
+    print("Heal de 10 prin BlessingDecorator:")
+    blessed.heal(10)
+    afiseaza_status(blessed)
+
+
+def demo_bridge_pattern():
+    """Demonstrează separarea dintre tipul armei și modul de damage."""
+    print("\n=== Demo Bridge ===")
+    hero = Character("Bridge Knight", 120)
+    enemy = Character("Bridge Dummy", 140)
+
+    sword = Sword("Lionheart Sword", 18, PhysicalDamage())
+    blaster = Blaster("Arc Pulse Blaster", 16, EnergyDamage())
+    spear = Spear("Storm Spear", 14, PiercingDamage())
+
+    print(sword.describe())
+    sword.strike(hero, enemy)
+    print(blaster.describe())
+    blaster.strike(hero, enemy)
+    print(spear.describe())
+    spear.strike(hero, enemy)
+
+    print("Status după atacuri:")
+    afiseaza_status(hero)
+    afiseaza_status(enemy)
+
+
+def demo_proxy_pattern():
+    """Demonstrează acces lazy și cache peste istoricul de meciuri."""
+    print("\n=== Demo Proxy ===")
+    proxy = MatchHistoryProxy(Path("match_history"))
+
+    print(f"Proxy încărcat? {proxy.cache_loaded}")
+    matches = proxy.latest_matches(3)
+    print(f"Proxy încărcat după prima listare? {proxy.cache_loaded}")
+
+    if not matches:
+        print("Nu există fișiere de istoric disponibile.")
+        return
+
+    for match in matches:
+        print(f"- {match.name}")
+        preview = proxy.preview(match)
+        print(preview)
+        print("---")
+
+
 def meniu():
     """Afișează meniul principal și returnează opțiunea aleasă."""
     print("\n" + "=" * 50)
@@ -144,9 +256,15 @@ def meniu():
     print("  8. Demo Adapter (legacy enemy)")
     print("  9. Demo Composite (squad)")
     print(" 10. Demo Facade (duel orchestration)")
+    print(" 11. Demo Flyweight (shared enemy archetypes)")
+    print(" 12. Demo Decorator (shield + blessing)")
+    print(" 13. Demo Bridge (weapon/damage modes)")
+    print(" 14. Demo Proxy (match history access)")
+    print(" 15. Aplică Shield pe erou")
+    print(" 16. Aplică Blessing pe erou")
     print("  0. Ieșire")
     print("=" * 50)
-    return input("\nAlege opțiunea (0-10): ").strip()
+    return input("\nAlege opțiunea (0-16): ").strip()
 
 
 def run_console():
@@ -156,7 +274,7 @@ def run_console():
     event_bus.subscribe("healed", on_heal)
 
     print("=== GoF Arena - Design Patterns Showcase ===")
-    print("Scop: demonstrarea celor 22 pattern-uri GoF într-un simulator text-based\n")
+    print("Scop: demonstrarea pattern-urilor GoF într-un simulator text-based\n")
 
     erou = None
     inamic = None
@@ -228,7 +346,11 @@ def run_console():
                 except ValueError:
                     dmg = 0
                 if dmg > 0:
-                    inamic.take_damage(dmg)
+                    arma = input("Arma eroului (Sword/Blaster/Spear, Enter = Sword): ").strip() or "Sword"
+                    mod_damage = input("Mod damage (Physical/Energy/Piercing, Enter = Physical): ").strip() or "Physical"
+                    weapon = construieste_arma(arma, dmg, mod_damage)
+                    dealt = weapon.strike(erou, inamic)
+                    print(f"  → Eroul atacă folosind {weapon.name} și produce {dealt} dmg.")
 
                 # Atac inamic → erou (doar dacă inamicul mai trăiește)
                 if inamic.hp > 0:
@@ -242,6 +364,30 @@ def run_console():
                 print("\nStatus după tur:")
                 afiseaza_status(erou)
                 afiseaza_status(inamic)
+
+        elif optiune == "15":
+            if not erou:
+                print("\nTrebuie să creezi întâi un erou!")
+            else:
+                try:
+                    shield_value = int(input("Valoare Shield (Enter = 5): ") or 5)
+                except ValueError:
+                    shield_value = 5
+                erou = ShieldDecorator(erou, shield_value=shield_value)
+                print(f"\nShield aplicat pe {erou.name} cu reducere {shield_value}.")
+                afiseaza_status(erou)
+
+        elif optiune == "16":
+            if not erou:
+                print("\nTrebuie să creezi întâi un erou!")
+            else:
+                try:
+                    blessing_value = int(input("Bonus Blessing (Enter = 4): ") or 4)
+                except ValueError:
+                    blessing_value = 4
+                erou = BlessingDecorator(erou, healing_bonus=blessing_value)
+                print(f"\nBlessing aplicat pe {erou.name} cu bonus {blessing_value} la heal.")
+                afiseaza_status(erou)
 
         elif optiune == "4":
             print("\nLog-uri acumulate:")
@@ -314,13 +460,25 @@ def run_console():
         elif optiune == "10":
             demo_facade_pattern()
 
+        elif optiune == "11":
+            demo_flyweight_pattern()
+
+        elif optiune == "12":
+            demo_decorator_pattern()
+
+        elif optiune == "13":
+            demo_bridge_pattern()
+
+        elif optiune == "14":
+            demo_proxy_pattern()
+
         elif optiune == "0":
             print("\nMulțumim că ai testat GoF Arena!")
             print("Ieșire...")
             break
 
         else:
-            print("\nOpțiune invalidă. Alege un număr între 0 și 10.")
+            print("\nOpțiune invalidă. Alege un număr între 0 și 16.")
 
 if __name__ == "__main__":
     if "--console" in sys.argv:

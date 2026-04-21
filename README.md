@@ -16,6 +16,11 @@ Simulator RPG in Python pentru demonstrarea pattern-urilor GoF, acum cu interfat
 - **Decorator** - `patterns/structural/decorator.py` - adaugă efecte precum scut și bonus de vindecare peste un personaj existent
 - **Bridge** - `patterns/structural/bridge.py` - separă armele de modul de damage folosit
 - **Proxy** - `patterns/structural/proxy.py` - oferă acces lazy/cached la istoricul de meciuri
+- **Strategy** - `patterns/behavioral/strategy.py` - schimbă la runtime algoritmul de atac (balanced/aggressive/defensive/chaos)
+- **Observer (behavioral)** - `patterns/behavioral/observer.py` - subject + observers reutilizabili pentru notificări de luptă
+- **Command** - `patterns/behavioral/command.py` - încapsulează acțiuni (`DamageCommand`, `HealCommand`) cu suport de undo
+- **Memento** - `patterns/behavioral/memento.py` - snapshot/restore pentru starea personajelor
+- **Iterator** - `patterns/behavioral/iterator.py` - parcurgere forward/reverse peste colecții de log fără expunerea structurii interne
 
 ## Structură proiect
 ```
@@ -36,11 +41,22 @@ TMPP(GoF_Arena)/
 │       ├── builder.py          # Builder pattern - CharacterBuilder
 │       ├── abstract_factory.py  # Abstract Factory pattern
 │       └── prototype.py         # Prototype pattern
+│   ├── behavioral/
+│       ├── __init__.py
+│       ├── strategy.py          # Strategy pattern
+│       ├── observer.py          # Observer pattern (subject/observers)
+│       ├── command.py           # Command pattern
+│       ├── memento.py           # Memento pattern
+│       └── iterator.py          # Iterator pattern
 │   └── structural/
 │       ├── __init__.py
 │       ├── adapter.py           # Adapter pattern
 │       ├── composite.py         # Composite pattern
-│       └── facade.py            # Facade pattern
+│       ├── facade.py            # Facade pattern
+│       ├── flyweight.py         # Flyweight pattern
+│       ├── decorator.py         # Decorator pattern
+│       ├── bridge.py            # Bridge pattern
+│       └── proxy.py             # Proxy pattern
 └── utils/
     ├── __init__.py
     └── logger.py        # Singleton pattern - Logger global
@@ -66,6 +82,11 @@ python main.py
 - ✅ Implementat Prototype pattern în `patterns/creational/prototype.py`
 - ✅ Adăugat opțiunea 6 în meniu pentru clonarea inamicilor din prototip (Goblin Elite, Orc Berserker, Ancient Troll)
 
+## Caracteristici recente (Apr 21, 2026)
+- ✅ Adăugate patternurile comportamentale în `patterns/behavioral/`: Strategy, Observer, Command, Memento, Iterator
+- ✅ Extins meniul din consolă la intervalul 0-21 cu demo-uri pentru noile patternuri (opțiunile 17-21)
+- ✅ Adăugate butoane dedicate în GUI pentru demo-urile Strategy, Observer, Command, Memento și Iterator
+
 ## Gameplay
 1. **Opțiunea 1**: Creează un erou cu HP personalizat
 2. **Opțiunea 2**: Alege din tipuri predefiniţi de inamici (Goblin, Orc Warrior, Troll, Random)
@@ -81,6 +102,13 @@ python main.py
 12. **Opțiunea 12**: Rulează demo-ul Decorator (shield + blessing pe personaj)
 13. **Opțiunea 13**: Rulează demo-ul Bridge (arme și moduri de damage separate)
 14. **Opțiunea 14**: Rulează demo-ul Proxy (acces lazy la match history)
+15. **Opțiunea 15**: Aplică Shield pe erou (Decorator)
+16. **Opțiunea 16**: Aplică Blessing pe erou (Decorator)
+17. **Opțiunea 17**: Rulează demo-ul Strategy (schimbarea stilului de atac la runtime)
+18. **Opțiunea 18**: Rulează demo-ul Observer (subject + observers reutilizabili)
+19. **Opțiunea 19**: Rulează demo-ul Command (execute + undo)
+20. **Opțiunea 20**: Rulează demo-ul Memento (save + restore stare)
+21. **Opțiunea 21**: Rulează demo-ul Iterator (traversare forward/reverse)
 
 ## Exemple output pentru pattern-uri structurale
 

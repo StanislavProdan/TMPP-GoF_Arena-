@@ -16,6 +16,22 @@ from game.gui import run_gui
 from patterns.creational.abstract_factory import MedievalFactionFactory, SciFiFactionFactory
 from patterns.creational.prototype import CharacterPrototype, PrototypeRegistry
 from patterns.creational.builder import CharacterBuilder
+from patterns.behavioral import (
+    AggressiveStrategy,
+    AttackContext,
+    BalancedStrategy,
+    BattleFeedObserver,
+    BattleStatsObserver,
+    ChaosStrategy,
+    CommandInvoker,
+    CombatLogCollection,
+    DamageCommand,
+    DefensiveStrategy,
+    HealCommand,
+    CharacterStateOriginator,
+    MementoCaretaker,
+    Subject,
+)
 from patterns.structural import (
     ArenaFacade,
     Blaster,
@@ -241,6 +257,92 @@ def demo_proxy_pattern():
         print("---")
 
 
+def demo_strategy_pattern():
+    """Demonstrează schimbarea algoritmului de atac la runtime."""
+    print("\n=== Demo Strategy ===")
+    hero = Character("Strategist Hero", 120)
+    dummy = Character("Training Dummy", 150)
+    context = AttackContext(BalancedStrategy())
+
+    for strategy in (BalancedStrategy(), AggressiveStrategy(), DefensiveStrategy(), ChaosStrategy()):
+        context.set_strategy(strategy)
+        dealt = context.attack(hero, dummy, 12)
+        print(f"{strategy.name.capitalize()} strategy -> {dealt} dmg | {dummy.name}: {dummy.hp}/{dummy.max_hp}")
+
+
+def demo_observer_pattern():
+    """Demonstrează Subject/Observer separat de EventBus-ul global."""
+    print("\n=== Demo Observer ===")
+    subject = Subject()
+    feed = BattleFeedObserver()
+    stats = BattleStatsObserver()
+
+    subject.attach(feed)
+    subject.attach(stats)
+
+    subject.notify("hero_attack", {"damage": 14})
+    subject.notify("hero_attack", {"damage": 9})
+    subject.notify("enemy_counter", {"damage": 7})
+
+    print("Feed observer:")
+    for line in feed.messages:
+        print(f"  - {line}")
+    print(f"Stats observer: {stats.counters}")
+
+
+def demo_command_pattern():
+    """Demonstrează acțiuni încapsulate și undo prin invoker."""
+    print("\n=== Demo Command ===")
+    hero = Character("Command Hero", 100)
+    enemy = Character("Command Enemy", 90)
+    invoker = CommandInvoker()
+
+    invoker.execute(DamageCommand(enemy, 20))
+    invoker.execute(HealCommand(hero, 10))
+    print(f"După execute: {hero.name}={hero.hp}/{hero.max_hp}, {enemy.name}={enemy.hp}/{enemy.max_hp}")
+
+    invoker.undo_last()
+    invoker.undo_last()
+    print(f"După undo x2: {hero.name}={hero.hp}/{hero.max_hp}, {enemy.name}={enemy.hp}/{enemy.max_hp}")
+
+
+def demo_memento_pattern():
+    """Demonstrează snapshot + restore pentru starea personajului."""
+    print("\n=== Demo Memento ===")
+    hero = Character("Memento Hero", 110)
+    hero.description = "Ready for checkpoint"
+
+    caretaker = MementoCaretaker()
+    caretaker.push(CharacterStateOriginator.save(hero))
+
+    hero.take_damage(40)
+    hero.heal(5)
+    print(f"Stare curentă: {hero.name} {hero.hp}/{hero.max_hp}")
+
+    snapshot = caretaker.pop()
+    if snapshot:
+        CharacterStateOriginator.restore(hero, snapshot)
+    print(f"După restore: {hero.name} {hero.hp}/{hero.max_hp}")
+
+
+def demo_iterator_pattern():
+    """Demonstrează parcurgerea colecției de evenimente fără expunerea internelor."""
+    print("\n=== Demo Iterator ===")
+    history = CombatLogCollection()
+    history.add("Hero spawned")
+    history.add("Enemy spawned")
+    history.add("Hero attacks for 12")
+    history.add("Enemy counters for 8")
+
+    print("Forward iteration:")
+    for item in history:
+        print(f"  - {item}")
+
+    print("Reverse iteration:")
+    for item in history.reversed_iter():
+        print(f"  - {item}")
+
+
 def meniu():
     """Afișează meniul principal și returnează opțiunea aleasă."""
     print("\n" + "=" * 50)
@@ -262,9 +364,14 @@ def meniu():
     print(" 14. Demo Proxy (match history access)")
     print(" 15. Aplică Shield pe erou")
     print(" 16. Aplică Blessing pe erou")
+    print(" 17. Demo Strategy (runtime attack styles)")
+    print(" 18. Demo Observer (subject + observers)")
+    print(" 19. Demo Command (execute + undo)")
+    print(" 20. Demo Memento (save + restore)")
+    print(" 21. Demo Iterator (combat log traversal)")
     print("  0. Ieșire")
     print("=" * 50)
-    return input("\nAlege opțiunea (0-16): ").strip()
+    return input("\nAlege opțiunea (0-21): ").strip()
 
 
 def run_console():
@@ -472,13 +579,28 @@ def run_console():
         elif optiune == "14":
             demo_proxy_pattern()
 
+        elif optiune == "17":
+            demo_strategy_pattern()
+
+        elif optiune == "18":
+            demo_observer_pattern()
+
+        elif optiune == "19":
+            demo_command_pattern()
+
+        elif optiune == "20":
+            demo_memento_pattern()
+
+        elif optiune == "21":
+            demo_iterator_pattern()
+
         elif optiune == "0":
             print("\nMulțumim că ai testat GoF Arena!")
             print("Ieșire...")
             break
 
         else:
-            print("\nOpțiune invalidă. Alege un număr între 0 și 16.")
+            print("\nOpțiune invalidă. Alege un număr între 0 și 21.")
 
 if __name__ == "__main__":
     if "--console" in sys.argv:

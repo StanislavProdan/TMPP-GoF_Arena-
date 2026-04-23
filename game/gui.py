@@ -2,6 +2,7 @@
 """
 
 import random
+import time
 import tkinter as tk
 from datetime import datetime
 from pathlib import Path
@@ -115,6 +116,30 @@ class GoFArenaGUI:
         self.enemy_anchor = (420, 120)
         self._active_scroll_target = None
         self._hero_buff_state = {"shield": 0, "blessing": 0}
+        self.battle_window: Optional[tk.Toplevel] = None
+        self.battle_feed: Optional[tk.Text] = None
+        self.battle_status_var: Optional[tk.StringVar] = None
+        self.battle_round_var: Optional[tk.StringVar] = None
+        self.battle_hero_hp_var: Optional[tk.StringVar] = None
+        self.battle_enemy_hp_var: Optional[tk.StringVar] = None
+        self.battle_stats_var: Optional[tk.StringVar] = None
+        self.battle_attack_var = tk.IntVar(value=12)
+        self.battle_heal_var = tk.IntVar(value=10)
+        self.battle_enemy_attack_var = tk.IntVar(value=8)
+        self.demo_buttons: list[ttk.Button] = []
+        self.terraria_canvas: Optional[tk.Canvas] = None
+        self.terraria_state: dict[str, object] = {}
+        self.terraria_keys: set[str] = set()
+        self.terraria_loop_after_id: Optional[str] = None
+        self.battle_weapon_var: Optional[tk.StringVar] = None
+        self.command_invoker = CommandInvoker()
+        self.hero_state_caretaker = MementoCaretaker()
+        self.enemy_attack_context = AttackContext(BalancedStrategy())
+        self.battle_subject = Subject()
+        self.battle_feed_observer = BattleFeedObserver()
+        self.battle_stats_observer = BattleStatsObserver()
+        self.battle_subject.attach(self.battle_feed_observer)
+        self.battle_subject.attach(self.battle_stats_observer)
 
         self.prototype_registry = PrototypeRegistry()
         self.prototype_registry.register("goblin_elite", CharacterPrototype(Character("Goblin Elite", 75)))
@@ -368,19 +393,25 @@ class GoFArenaGUI:
         ).pack(fill="x", padx=8, pady=(2, 4))
         ttk.Button(controls, text="6) Clone Prototype", command=self.clone_prototype_enemy).pack(fill="x", padx=8, pady=(0, 6))
 
-        ttk.Button(controls, text="7) Builder Demo", command=self.demo_builder_integrity).pack(fill="x", padx=8, pady=4)
-        ttk.Button(controls, text="8) Adapter Demo", command=self.demo_adapter_pattern).pack(fill="x", padx=8, pady=4)
-        ttk.Button(controls, text="9) Composite Demo", command=self.demo_composite_pattern).pack(fill="x", padx=8, pady=4)
-        ttk.Button(controls, text="10) Facade Demo", command=self.demo_facade_pattern).pack(fill="x", padx=8, pady=4)
-        ttk.Button(controls, text="11) Flyweight Demo", command=self.demo_flyweight_pattern).pack(fill="x", padx=8, pady=4)
-        ttk.Button(controls, text="12) Decorator Demo", command=self.demo_decorator_pattern).pack(fill="x", padx=8, pady=4)
-        ttk.Button(controls, text="13) Bridge Demo", command=self.demo_bridge_pattern).pack(fill="x", padx=8, pady=4)
-        ttk.Button(controls, text="14) Proxy Demo", command=self.demo_proxy_pattern).pack(fill="x", padx=8, pady=4)
-        ttk.Button(controls, text="15) Strategy Demo", command=self.demo_strategy_pattern).pack(fill="x", padx=8, pady=4)
-        ttk.Button(controls, text="16) Observer Demo", command=self.demo_observer_pattern).pack(fill="x", padx=8, pady=4)
-        ttk.Button(controls, text="17) Command Demo", command=self.demo_command_pattern).pack(fill="x", padx=8, pady=4)
-        ttk.Button(controls, text="18) Memento Demo", command=self.demo_memento_pattern).pack(fill="x", padx=8, pady=4)
-        ttk.Button(controls, text="19) Iterator Demo", command=self.demo_iterator_pattern).pack(fill="x", padx=8, pady=4)
+        demo_actions = [
+            ("7) Builder Demo", self.demo_builder_integrity),
+            ("8) Adapter Demo", self.demo_adapter_pattern),
+            ("9) Composite Demo", self.demo_composite_pattern),
+            ("10) Facade Demo", self.demo_facade_pattern),
+            ("11) Flyweight Demo", self.demo_flyweight_pattern),
+            ("12) Decorator Demo", self.demo_decorator_pattern),
+            ("13) Bridge Demo", self.demo_bridge_pattern),
+            ("14) Proxy Demo", self.demo_proxy_pattern),
+            ("15) Strategy Demo", self.demo_strategy_pattern),
+            ("16) Observer Demo", self.demo_observer_pattern),
+            ("17) Command Demo", self.demo_command_pattern),
+            ("18) Memento Demo", self.demo_memento_pattern),
+            ("19) Iterator Demo", self.demo_iterator_pattern),
+        ]
+        for label, callback in demo_actions:
+            btn = ttk.Button(controls, text=label, command=callback)
+            btn.pack(fill="x", padx=8, pady=4)
+            self.demo_buttons.append(btn)
         ttk.Button(controls, text="Reset Match", command=self.reset_match, style="Danger.TButton").pack(fill="x", padx=8, pady=4)
 
         ttk.Separator(controls, orient="horizontal").pack(fill="x", padx=8, pady=8)
@@ -489,6 +520,10 @@ class GoFArenaGUI:
 
     def _bind_scroll_handlers(self):
         self.root.bind_all("<MouseWheel>", self._dispatch_mousewheel)
+        self.root.bind("<FocusIn>", self._on_root_focus)
+
+    def _on_root_focus(self, _event):
+        self._refresh_focus_mode()
 
     def _set_active_scroll_target(self, widget):
         self._active_scroll_target = widget
@@ -647,10 +682,20 @@ class GoFArenaGUI:
 
     def _append_log(self, message: str):
         timestamp = datetime.now().strftime("%H:%M:%S")
+        line = f"[{timestamp}] {message}\n"
         self.feed.configure(state="normal")
-        self.feed.insert("end", f"[{timestamp}] {message}\n")
+        self.feed.insert("end", line)
         self.feed.see("end")
         self.feed.configure(state="disabled")
+        self._append_battle_feed(line)
+
+    def _append_battle_feed(self, line: str):
+        if not self.battle_feed or not self._battle_window_exists():
+            return
+        self.battle_feed.configure(state="normal")
+        self.battle_feed.insert("end", line)
+        self.battle_feed.see("end")
+        self.battle_feed.configure(state="disabled")
 
     def _add_history(self, message: str):
         self.history_list.insert("end", message)
@@ -666,6 +711,7 @@ class GoFArenaGUI:
         self.stats_dealt_var.set(f"Hero dealt: {self.hero_damage_dealt}")
         self.stats_taken_var.set(f"Hero taken: {self.hero_damage_taken}")
         self.stats_heal_var.set(f"Hero heals: {self.hero_total_heal}")
+        self._sync_battle_window_status()
 
     def _reset_stats(self):
         self.hero_damage_dealt = 0
@@ -726,6 +772,1179 @@ class GoFArenaGUI:
             self._draw_hp_bar(self.enemy_hp_canvas, 0, 1)
 
         self._render_arena_sprites()
+        self._sync_battle_window_status()
+        self._refresh_focus_mode()
+
+    def _is_duel_active(self) -> bool:
+        return bool(self.hero and self.enemy and self.hero.hp > 0 and self.enemy.hp > 0)
+
+    def _set_demo_buttons_state(self, state: str):
+        for button in self.demo_buttons:
+            button.configure(state=state)
+
+    def _refresh_focus_mode(self):
+        if self._is_duel_active():
+            self._set_demo_buttons_state("disabled")
+            if self._battle_window_exists():
+                self.battle_window.lift()
+                self.battle_window.focus_set()
+        else:
+            self._set_demo_buttons_state("normal")
+
+    def _battle_window_exists(self) -> bool:
+        return self.battle_window is not None and self.battle_window.winfo_exists()
+
+    def _ensure_battle_interface(self):
+        if not (self.hero and self.enemy):
+            return
+        if self._battle_window_exists():
+            self._terraria_init_world(reset_positions=True)
+            self.battle_window.lift()
+            self._sync_battle_window_status()
+            self._refresh_focus_mode()
+            return
+        self._open_battle_interface()
+
+    def _open_battle_interface(self):
+        self.battle_window = tk.Toplevel(self.root)
+        self.battle_window.title("Battle Interface")
+        self.battle_window.geometry("760x560")
+        self.battle_window.minsize(680, 500)
+        self.battle_window.configure(bg=self.colors["bg"])
+        self.battle_window.transient(self.root)
+
+        def _on_close():
+            if self._is_duel_active():
+                messagebox.showinfo("Battle Active", "Finish or reset the duel before closing Battle Interface.")
+                self.battle_window.lift()
+                self.battle_window.focus_set()
+                return
+            self._terraria_stop_loop()
+            self.terraria_keys.clear()
+            self.battle_window.destroy()
+            self.battle_window = None
+            self.battle_feed = None
+            self.terraria_canvas = None
+            self._refresh_focus_mode()
+
+        self.battle_window.protocol("WM_DELETE_WINDOW", _on_close)
+
+        self.battle_status_var = tk.StringVar(value="Battle ready")
+        self.battle_round_var = tk.StringVar(value="Round: 0")
+        self.battle_hero_hp_var = tk.StringVar(value="Hero HP: -")
+        self.battle_enemy_hp_var = tk.StringVar(value="Enemy HP: -")
+        self.battle_stats_var = tk.StringVar(value="Dealt 0 | Taken 0 | Heal 0")
+        self.battle_weapon_var = tk.StringVar(value=f"Weapon: {self.hero_weapon_kind.get()} (1/2/3)")
+
+        top = ttk.Frame(self.battle_window, style="Card.TFrame")
+        top.pack(fill="x", padx=12, pady=(12, 8))
+        ttk.Label(top, text="Arena Battle Mode", style="Header.TLabel").pack(anchor="w")
+        ttk.Label(top, textvariable=self.battle_status_var, style="ArenaMeta.TLabel").pack(anchor="w", pady=(2, 0))
+        ttk.Label(top, textvariable=self.battle_round_var, style="ArenaName.TLabel").pack(anchor="w", pady=(2, 0))
+        ttk.Label(top, textvariable=self.battle_weapon_var, style="ArenaMeta.TLabel").pack(anchor="w", pady=(0, 2))
+
+        status = ttk.LabelFrame(self.battle_window, text="Fighters", style="Card.TLabelframe")
+        status.pack(fill="x", padx=12, pady=(0, 8))
+        ttk.Label(status, textvariable=self.battle_hero_hp_var, style="ArenaMeta.TLabel").pack(anchor="w", padx=8, pady=(8, 2))
+        ttk.Label(status, textvariable=self.battle_enemy_hp_var, style="ArenaMeta.TLabel").pack(anchor="w", padx=8, pady=2)
+        ttk.Label(status, textvariable=self.battle_stats_var, style="ArenaMeta.TLabel").pack(anchor="w", padx=8, pady=(2, 8))
+
+        terraria_box = ttk.LabelFrame(self.battle_window, text="GoF Mode (A/D move, W/Space jump, F attack, H heal, 1=Laser 2=Spear 3=Sword)", style="Card.TLabelframe")
+        terraria_box.pack(fill="x", padx=12, pady=(0, 8))
+        self.terraria_canvas = tk.Canvas(
+            terraria_box,
+            width=620,
+            height=240,
+            bg="#6fa0df",
+            highlightthickness=0,
+            relief="flat",
+        )
+        self.terraria_canvas.pack(fill="x", padx=8, pady=8)
+
+        controls = ttk.LabelFrame(self.battle_window, text="Battle Actions", style="Card.TLabelframe")
+        controls.pack(fill="x", padx=12, pady=(0, 8))
+
+        sliders = ttk.Frame(controls, style="Card.TFrame")
+        sliders.pack(fill="x", padx=8, pady=8)
+
+        ttk.Label(sliders, text="Hero attack dmg", style="FieldLabel.TLabel").grid(row=0, column=0, sticky="w", pady=2)
+        tk.Spinbox(sliders, from_=1, to=60, textvariable=self.battle_attack_var, width=6).grid(row=0, column=1, sticky="w", padx=(8, 20))
+
+        ttk.Label(sliders, text="Hero heal", style="FieldLabel.TLabel").grid(row=0, column=2, sticky="w", pady=2)
+        tk.Spinbox(sliders, from_=1, to=60, textvariable=self.battle_heal_var, width=6).grid(row=0, column=3, sticky="w", padx=(8, 20))
+
+        ttk.Label(sliders, text="Enemy dmg", style="FieldLabel.TLabel").grid(row=0, column=4, sticky="w", pady=2)
+        tk.Spinbox(sliders, from_=0, to=60, textvariable=self.battle_enemy_attack_var, width=6).grid(row=0, column=5, sticky="w", padx=(8, 0))
+
+        buttons = ttk.Frame(controls, style="Card.TFrame")
+        buttons.pack(fill="x", padx=8, pady=(0, 8))
+        ttk.Button(buttons, text="Hero Attack", command=self._battle_attack_action, style="Emphasis.TButton").pack(side="left", padx=(0, 6))
+        ttk.Button(buttons, text="Hero Heal", command=self._battle_heal_action).pack(side="left", padx=(0, 6))
+        ttk.Button(buttons, text="Rewind Hero", command=self._battle_rewind_hero).pack(side="left", padx=(0, 6))
+        ttk.Button(buttons, text="Manual Round", command=self._battle_manual_round_action).pack(side="left", padx=(0, 6))
+        ttk.Button(buttons, text="Quick Duel", command=self.quick_duel).pack(side="left", padx=(0, 6))
+        ttk.Button(buttons, text="End Fight", command=self._end_fight_and_close, style="Danger.TButton").pack(side="right", padx=(0, 6))
+        ttk.Button(buttons, text="Close", command=_on_close, style="Danger.TButton").pack(side="right")
+
+        feed_box = ttk.LabelFrame(self.battle_window, text="Live Battle Feed", style="Card.TLabelframe")
+        feed_box.pack(fill="both", expand=True, padx=12, pady=(0, 12))
+        feed_shell = ttk.Frame(feed_box, style="Card.TFrame")
+        feed_shell.pack(fill="both", expand=True, padx=8, pady=8)
+
+        self.battle_feed = tk.Text(
+            feed_shell,
+            wrap="word",
+            height=14,
+            padx=10,
+            pady=10,
+            bg=self.colors["feed_bg"],
+            fg=self.colors["text"],
+            insertbackground=self.colors["text"],
+            relief="flat",
+            font=("Consolas", 10),
+        )
+        scroll = ttk.Scrollbar(feed_shell, orient="vertical", command=self.battle_feed.yview)
+        self.battle_feed.configure(yscrollcommand=scroll.set)
+        self.battle_feed.pack(side="left", fill="both", expand=True)
+        scroll.pack(side="left", fill="y")
+        self.battle_feed.configure(state="disabled")
+
+        self._append_log("Battle interface opened.")
+        self._terraria_init_world(reset_positions=True)
+        self.battle_window.bind("<KeyPress>", self._on_battle_key_press)
+        self.battle_window.bind("<KeyRelease>", self._on_battle_key_release)
+        self.battle_window.focus_set()
+        self._terraria_start_loop()
+        self._sync_battle_window_status()
+        self._refresh_focus_mode()
+
+    def _terraria_init_world(self, reset_positions: bool = False):
+        if not self.terraria_state or reset_positions:
+            enemy_archetype = self._terraria_detect_enemy_archetype()
+            self.terraria_state = {
+                "world_width": 1600.0,
+                "ground_y": 188.0,
+                "camera_x": 0.0,
+                "hero_x": 160.0,
+                "hero_y": 188.0,
+                "hero_vy": 0.0,
+                "hero_w": 22.0,
+                "hero_h": 36.0,
+                "hero_on_ground": True,
+                "enemy_x": 620.0,
+                "enemy_y": 188.0,
+                "enemy_vy": 0.0,
+                "enemy_w": 24.0,
+                "enemy_h": 38.0,
+                "enemy_on_ground": True,
+                "enemy_last_hit": 0.0,
+                "enemy_last_shot": 0.0,
+                "enemy_last_dash": 0.0,
+                "hero_facing": 1,
+                "enemy_facing": -1,
+                "projectiles": [],
+                "effects": [],
+                "pickups": [],
+                "pickup_last_spawn": time.time(),
+                "hero_ammo": {"Blaster": 24, "Spear": 12},
+                "hero_ammo_max": {"Blaster": 48, "Spear": 24},
+                "enemy_archetype": enemy_archetype,
+                "wave_number": 1,
+                "wave_kills": 0,
+                "wave_spawn_pending": False,
+                "wave_spawn_at": 0.0,
+                "platforms": [
+                    (220.0, 420.0, 150.0),
+                    (540.0, 760.0, 126.0),
+                    (860.0, 1120.0, 158.0),
+                    (1220.0, 1450.0, 136.0),
+                ],
+            }
+        self._terraria_draw_world()
+
+    def _terraria_detect_enemy_archetype(self) -> str:
+        if not self.enemy:
+            return random.choice(["slime", "archer", "brute"])
+
+        name = self.enemy.name.lower()
+        if "slime" in name or "goblin" in name:
+            return "slime"
+        if "archer" in name:
+            return "archer"
+        if "brute" in name or "troll" in name or "orc" in name:
+            return "brute"
+        return random.choice(["slime", "archer", "brute"])
+
+    def _terraria_roll_wave_archetype(self, wave_number: int) -> str:
+        if wave_number <= 2:
+            return random.choice(["slime", "archer"])
+        if wave_number <= 4:
+            return random.choice(["slime", "archer", "brute"])
+        # Later waves skew towards brute/archer for higher pressure.
+        return random.choice(["archer", "brute", "brute", "slime"])
+
+    def _terraria_build_enemy_for_wave(self, wave_number: int, archetype: str) -> Character:
+        # Abstract Factory provides theme context for the current wave.
+        faction_factory = SciFiFactionFactory() if wave_number % 2 == 0 else MedievalFactionFactory()
+        faction_enemy = faction_factory.create_enemy()
+        faction_weapon = faction_factory.create_weapon()
+
+        # Factory Method fallback for periodic boss-like waves.
+        if wave_number % 5 == 0:
+            if archetype == "brute":
+                base_enemy = TrollFactory().create_enemy()
+            elif archetype == "archer":
+                base_enemy = OrcFactory().create_enemy()
+            else:
+                base_enemy = GoblinFactory().create_enemy()
+        else:
+            # Flyweight shared archetype basis.
+            fly_key = "troll" if archetype == "brute" else ("orc" if archetype == "archer" else "goblin")
+            base_enemy = self.flyweight_factory.create_enemy(fly_key, name=faction_enemy.name)
+
+        # Adapter appears on some late waves to integrate legacy enemy API into active battle flow.
+        if wave_number % 7 == 0 and archetype == "brute":
+            legacy = LegacyEnemy(f"Legacy Brute W{wave_number}", max(120, base_enemy.max_hp + 20))
+            base_enemy = LegacyEnemyAdapter(legacy)
+
+        # Prototype clone from prepared base to avoid rebuilding from scratch repeatedly.
+        proto_key = f"wave_{archetype}"
+        self.prototype_registry.register(proto_key, CharacterPrototype(base_enemy))
+        cloned = self.prototype_registry.clone(proto_key)
+
+        # Builder applies final scaled runtime stats.
+        base_hp = 90 + (wave_number * 12)
+        hp_factor = 0.95 if archetype == "slime" else (1.05 if archetype == "archer" else 1.3)
+        hp = max(70, int(base_hp * hp_factor))
+        name = f"{cloned.name} W{wave_number}"
+        desc = (cloned.description or "") + f" | faction weapon: {faction_weapon}"
+        return (
+            CharacterBuilder()
+            .name(name)
+            .max_hp(hp)
+            .initial_hp(hp)
+            .description(desc)
+            .build()
+        )
+
+    def _terraria_difficulty_tier(self) -> int:
+        wave_number = int(self.terraria_state.get("wave_number", 1)) if self.terraria_state else 1
+        return max(0, (wave_number - 1) // 3)
+
+    def _terraria_cd_factor(self) -> float:
+        # Every 3 waves, enemy cooldowns shorten.
+        tier = self._terraria_difficulty_tier()
+        return max(0.52, 1.0 - (0.09 * tier))
+
+    def _terraria_speed_factor(self) -> float:
+        # Every 3 waves, enemy movement gets faster.
+        tier = self._terraria_difficulty_tier()
+        return 1.0 + (0.08 * tier)
+
+    def _terraria_schedule_next_wave(self):
+        if not self.terraria_state:
+            return
+        wave_number = int(self.terraria_state.get("wave_number", 1)) + 1
+        self.terraria_state["wave_number"] = wave_number
+        self.terraria_state["wave_spawn_pending"] = True
+        self.terraria_state["wave_spawn_at"] = time.time() + 1.2
+        self._append_log(f"Wave {wave_number} incoming...")
+        self._add_history(f"Wave {wave_number} incoming")
+        self.battle_subject.notify("wave_incoming", {"wave": wave_number})
+
+    def _terraria_try_spawn_next_wave(self):
+        if not self.terraria_state or not bool(self.terraria_state.get("wave_spawn_pending", False)):
+            return
+        if self.hero is None or self.hero.hp <= 0:
+            return
+        if time.time() < float(self.terraria_state.get("wave_spawn_at", 0.0)):
+            return
+
+        wave_number = int(self.terraria_state.get("wave_number", 1))
+        archetype = self._terraria_roll_wave_archetype(wave_number)
+        self.enemy = self._terraria_build_enemy_for_wave(wave_number, archetype)
+        self.terraria_state["enemy_archetype"] = archetype
+        self.terraria_state["enemy_x"] = min(float(self.terraria_state.get("world_width", 1600.0)) - 120.0, float(self.terraria_state.get("hero_x", 200.0)) + 320.0)
+        self.terraria_state["enemy_y"] = self._terraria_floor_for_x(float(self.terraria_state["enemy_x"]))
+        self.terraria_state["enemy_vy"] = 0.0
+        self.terraria_state["enemy_on_ground"] = True
+        self.terraria_state["enemy_last_hit"] = 0.0
+        self.terraria_state["enemy_last_shot"] = 0.0
+        self.terraria_state["enemy_last_dash"] = 0.0
+        self.terraria_state["wave_spawn_pending"] = False
+
+        if archetype == "slime":
+            self.enemy_attack_context.set_strategy(ChaosStrategy())
+        elif archetype == "archer":
+            self.enemy_attack_context.set_strategy(BalancedStrategy())
+        else:
+            self.enemy_attack_context.set_strategy(AggressiveStrategy())
+
+        tier = self._terraria_difficulty_tier()
+
+        self._append_log(f"Wave {wave_number} spawned: {self.enemy.name} [{archetype.upper()}] | Tier {tier}")
+        self._add_history(f"Wave {wave_number}: {self.enemy.name} (T{tier})")
+        self.battle_subject.notify(
+            "wave_spawned",
+            {
+                "wave": wave_number,
+                "archetype": archetype,
+                "strategy": self.enemy_attack_context.strategy.name,
+            },
+        )
+        self._battle_save_checkpoint()
+
+    def _terraria_start_loop(self):
+        if self.terraria_loop_after_id is not None:
+            return
+        self._terraria_loop()
+
+    def _terraria_stop_loop(self):
+        if self.terraria_loop_after_id is not None:
+            try:
+                self.root.after_cancel(self.terraria_loop_after_id)
+            except tk.TclError:
+                pass
+            self.terraria_loop_after_id = None
+
+    def _on_battle_key_press(self, event):
+        key = event.keysym.lower()
+        if key in {"a", "d", "left", "right", "w", "up", "space", "f", "h", "1", "2", "3"}:
+            self.terraria_keys.add(key)
+
+        if key in {"1", "2", "3"}:
+            weapons = {"1": "Blaster", "2": "Spear", "3": "Sword"}
+            selected = weapons[key]
+            self.hero_weapon_kind.set(selected)
+            if self.battle_weapon_var:
+                self.battle_weapon_var.set(f"Weapon: {selected} (1/2/3)")
+            self._append_log(f"GoF weapon switched: {selected}")
+        elif key == "f":
+            self._terraria_attack_action()
+        elif key == "h":
+            self._terraria_heal_action()
+
+    def _on_battle_key_release(self, event):
+        key = event.keysym.lower()
+        if key in self.terraria_keys:
+            self.terraria_keys.remove(key)
+
+    def _terraria_attack_action(self):
+        if not self._battle_ready():
+            return
+
+        self._battle_save_checkpoint()
+
+        base = max(1, int(self.battle_attack_var.get()))
+        dmg = max(1, base + random.randint(-3, 3))
+        weapon = self._current_weapon(dmg)
+        weapon_name = weapon.__class__.__name__
+        dist = abs(float(self.terraria_state["hero_x"]) - float(self.terraria_state["enemy_x"]))
+        dealt = 0
+
+        if not self._terraria_consume_ammo(weapon_name):
+            self._append_log(f"No ammo for {weapon_name}. Find ammo pickup.")
+            self._terraria_spawn_effect(
+                {
+                    "type": "text",
+                    "x": float(self.terraria_state["hero_x"]),
+                    "y": float(self.terraria_state["hero_y"]) - 58,
+                    "ttl": 20,
+                    "text": "NO AMMO",
+                    "color": "#ffcf9f",
+                }
+            )
+            return
+
+        if weapon_name == "Sword":
+            if dist > 78:
+                self._append_log("GoF slash missed (move closer).")
+                self._terraria_spawn_effect(
+                    {
+                        "type": "text",
+                        "x": float(self.terraria_state["hero_x"]),
+                        "y": float(self.terraria_state["hero_y"]) - 56,
+                        "ttl": 16,
+                        "text": "MISS",
+                        "color": "#ffe39a",
+                    }
+                )
+                return
+            self._terraria_spawn_sword_slash_effect()
+            sword_damage = max(0, weapon.damage_mode.transform(weapon.base_damage))
+            dealt = self._execute_damage_command(self.enemy, sword_damage, "hero_sword")
+        elif weapon_name == "Blaster":
+            dealt = self._terraria_fire_laser(dmg)
+        else:
+            self._terraria_spawn_projectile(owner="hero", damage=dmg)
+            self._append_log(f"GoF projectile launched with {weapon.name}.")
+
+        self.round_count += 1
+        self.round_var.set(f"Round: {self.round_count}")
+        if dealt > 0:
+            action_name = "slash" if weapon_name == "Sword" else "laser"
+            self.last_action_var.set(f"Last action: GoF {action_name} with {weapon.name} for {dealt}")
+            self._add_history(f"GoF {action_name}: {dealt} via {weapon.name}")
+        else:
+            action_name = "shot" if weapon_name != "Sword" else "slash"
+            self.last_action_var.set(f"Last action: GoF {action_name} with {weapon.name}")
+            self._add_history(f"GoF {action_name} via {weapon.name}")
+        self._update_status()
+
+    def _terraria_heal_action(self):
+        if not self._battle_ready():
+            return
+
+        self._battle_save_checkpoint()
+
+        heal = max(1, int(self.battle_heal_var.get()))
+        self._execute_heal_command(self.hero, heal, "hero_heal")
+
+        self.round_count += 1
+        self.round_var.set(f"Round: {self.round_count}")
+        self.last_action_var.set(f"Last action: GoF heal for {heal}")
+        self._add_history(f"GoF heal: +{heal}")
+        self._update_status()
+
+    def _terraria_enemy_ai(self):
+        if not self._is_duel_active():
+            return
+
+        hero_x = float(self.terraria_state["hero_x"])
+        enemy_x = float(self.terraria_state["enemy_x"])
+        world_width = float(self.terraria_state["world_width"])
+        archetype = str(self.terraria_state.get("enemy_archetype", "slime"))
+        speed_factor = self._terraria_speed_factor()
+        cd_factor = self._terraria_cd_factor()
+        tier = self._terraria_difficulty_tier()
+        now = time.time()
+        dist = abs(float(self.terraria_state["hero_x"]) - float(self.terraria_state["enemy_x"]))
+
+        if hero_x > enemy_x:
+            self.terraria_state["enemy_facing"] = 1
+        else:
+            self.terraria_state["enemy_facing"] = -1
+
+        if archetype == "slime":
+            # Slime: short hops towards player + quick close hits.
+            if dist > 34:
+                hop_speed = 1.7 * speed_factor
+                hop = hop_speed if hero_x > enemy_x else -hop_speed
+                self.terraria_state["enemy_x"] = max(28.0, min(world_width - 28.0, enemy_x + hop))
+            if bool(self.terraria_state.get("enemy_on_ground", True)) and now - float(self.terraria_state.get("enemy_last_dash", 0.0)) > (1.2 * cd_factor):
+                self.terraria_state["enemy_vy"] = -8.2 - (0.4 * tier)
+                self.terraria_state["enemy_last_dash"] = now
+            if dist < 42 and now - float(self.terraria_state["enemy_last_hit"]) >= (0.75 * cd_factor):
+                enemy_dmg = max(1, int(self.battle_enemy_attack_var.get()) - 1 + random.randint(0, 2) + tier)
+                enemy_dmg = self.enemy_attack_context.strategy.compute_damage(enemy_dmg)
+                self._execute_damage_command(self.hero, enemy_dmg, f"enemy_{archetype}_melee")
+                self.terraria_state["enemy_last_hit"] = now
+                self._append_log(f"GoF slime hit: {self.enemy.name} deals {enemy_dmg}")
+
+        elif archetype == "archer":
+            # Archer: keep distance and fire often.
+            preferred = max(170, 240 - (10 * tier))
+            speed = 2.6 * speed_factor
+            if dist < preferred - 20:
+                direction = -1 if hero_x > enemy_x else 1
+                self.terraria_state["enemy_x"] = max(28.0, min(world_width - 28.0, enemy_x + (direction * speed)))
+            elif dist > preferred + 40:
+                direction = 1 if hero_x > enemy_x else -1
+                self.terraria_state["enemy_x"] = max(28.0, min(world_width - 28.0, enemy_x + (direction * speed)))
+
+            if now - float(self.terraria_state["enemy_last_shot"]) >= (1.05 * cd_factor):
+                enemy_dmg = max(1, int(self.battle_enemy_attack_var.get()) + random.randint(-1, 1) + max(0, tier - 1))
+                enemy_dmg = self.enemy_attack_context.strategy.compute_damage(enemy_dmg)
+                self._terraria_spawn_projectile(owner="enemy", damage=enemy_dmg)
+                self.terraria_state["enemy_last_shot"] = now
+
+        else:
+            # Brute: slower but heavy melee + occasional rush.
+            speed = 1.35 * speed_factor
+            if dist > 44:
+                if hero_x > enemy_x:
+                    self.terraria_state["enemy_x"] = min(world_width - 28.0, enemy_x + speed)
+                else:
+                    self.terraria_state["enemy_x"] = max(28.0, enemy_x - speed)
+
+            if dist < 46 and now - float(self.terraria_state["enemy_last_hit"]) >= (1.35 * cd_factor):
+                enemy_dmg = max(2, int(self.battle_enemy_attack_var.get()) + random.randint(2, 5) + (tier * 2))
+                enemy_dmg = self.enemy_attack_context.strategy.compute_damage(enemy_dmg)
+                self._execute_damage_command(self.hero, enemy_dmg, f"enemy_{archetype}_smash")
+                self.terraria_state["enemy_last_hit"] = now
+                self._append_log(f"GoF brute smash: {self.enemy.name} deals {enemy_dmg}")
+
+            if dist > 120 and now - float(self.terraria_state.get("enemy_last_dash", 0.0)) >= (2.6 * cd_factor):
+                rush_distance = 22 + (2 * tier)
+                rush = rush_distance if hero_x > enemy_x else -rush_distance
+                self.terraria_state["enemy_x"] = max(28.0, min(world_width - 28.0, float(self.terraria_state["enemy_x"]) + rush))
+                self.terraria_state["enemy_last_dash"] = now
+
+    def _terraria_spawn_pickups(self):
+        pickups = self.terraria_state.get("pickups", [])
+        if not isinstance(pickups, list):
+            return
+
+        tier = self._terraria_difficulty_tier()
+        now = time.time()
+        last_spawn = float(self.terraria_state.get("pickup_last_spawn", now))
+        if len(pickups) >= 5:
+            return
+        spawn_interval = min(10.0, 6.0 + (0.55 * tier))
+        if now - last_spawn < spawn_interval:
+            return
+
+        x = random.uniform(80.0, float(self.terraria_state.get("world_width", 1600.0)) - 80.0)
+        y = self._terraria_floor_for_x(x)
+        health_chance = max(0.18, 0.55 - (0.07 * tier))
+        kind = "health" if random.random() < health_chance else "ammo"
+        amount = random.randint(8, 16) if kind == "health" else random.randint(4, 8)
+
+        pickups.append({"x": x, "y": y, "kind": kind, "amount": amount, "ttl": 520})
+        self.terraria_state["pickup_last_spawn"] = now
+
+    def _terraria_update_pickups(self):
+        pickups = self.terraria_state.get("pickups", [])
+        if not isinstance(pickups, list):
+            return
+
+        hero_x = float(self.terraria_state.get("hero_x", 0.0))
+        hero_y = float(self.terraria_state.get("hero_y", 0.0))
+        ammo = self.terraria_state.get("hero_ammo", {})
+        ammo_max = self.terraria_state.get("hero_ammo_max", {})
+
+        survivors = []
+        for item in pickups:
+            if not isinstance(item, dict):
+                continue
+
+            item["ttl"] = int(item.get("ttl", 0)) - 1
+            if int(item["ttl"]) <= 0:
+                continue
+
+            x = float(item.get("x", 0.0))
+            y = float(item.get("y", 0.0))
+            if abs(hero_x - x) < 20 and abs(hero_y - y) < 26:
+                kind = str(item.get("kind", "health"))
+                amount = int(item.get("amount", 0))
+                if kind == "health":
+                    if self.hero and self.hero.hp > 0:
+                        self.hero.heal(amount)
+                        self._append_log(f"Pickup: +{amount} HP")
+                else:
+                    if isinstance(ammo, dict) and isinstance(ammo_max, dict):
+                        ammo["Blaster"] = min(int(ammo_max.get("Blaster", 48)), int(ammo.get("Blaster", 0)) + amount)
+                        ammo["Spear"] = min(int(ammo_max.get("Spear", 24)), int(ammo.get("Spear", 0)) + max(1, amount // 2))
+                    self._append_log(f"Pickup: +{amount} ammo")
+                self._terraria_spawn_effect(
+                    {
+                        "type": "text",
+                        "x": x,
+                        "y": y - 20,
+                        "ttl": 24,
+                        "text": "+PICKUP",
+                        "color": "#d5ffd4",
+                    }
+                )
+                continue
+
+            survivors.append(item)
+
+        self.terraria_state["pickups"] = survivors
+
+    def _terraria_consume_ammo(self, weapon_name: str) -> bool:
+        if weapon_name == "Sword":
+            return True
+
+        ammo = self.terraria_state.get("hero_ammo", {})
+        if not isinstance(ammo, dict):
+            return True
+
+        current = int(ammo.get(weapon_name, 0))
+        if current <= 0:
+            return False
+        ammo[weapon_name] = current - 1
+        return True
+
+    def _battle_save_checkpoint(self):
+        if not self.hero:
+            return
+        self.hero_state_caretaker.push(CharacterStateOriginator.save(self._unwrap_combatant(self.hero)))
+        # Keep only the latest snapshots so restore remains bounded.
+        if self.hero_state_caretaker.size() > 25:
+            self.hero_state_caretaker.pop()
+
+    def _battle_rewind_hero(self):
+        if not self.hero:
+            return
+        snapshot = self.hero_state_caretaker.pop()
+        if not snapshot:
+            self._append_log("No checkpoint available for rewind.")
+            return
+        CharacterStateOriginator.restore(self._unwrap_combatant(self.hero), snapshot)
+        self.battle_subject.notify("hero_rewind", {"hp": self.hero.hp})
+        self._append_log("Hero restored from checkpoint.")
+        self._add_history("Rewind hero")
+        self._update_status()
+
+    def _execute_damage_command(self, target: Character, amount: int, source: str) -> int:
+        dmg = max(0, int(amount))
+        if dmg <= 0:
+            return 0
+        self.command_invoker.execute(DamageCommand(target, dmg))
+        self.battle_subject.notify("damage_command", {"target": target.name, "amount": dmg, "source": source})
+        return dmg
+
+    def _execute_heal_command(self, target: Character, amount: int, source: str) -> int:
+        heal = max(0, int(amount))
+        if heal <= 0:
+            return 0
+        self.command_invoker.execute(HealCommand(target, heal))
+        self.battle_subject.notify("heal_command", {"target": target.name, "amount": heal, "source": source})
+        return heal
+
+    def _terraria_apply_gravity(self):
+        gravity = 0.75
+        for prefix in ("hero", "enemy"):
+            vy_key = f"{prefix}_vy"
+            y_key = f"{prefix}_y"
+            on_ground_key = f"{prefix}_on_ground"
+            x_key = f"{prefix}_x"
+            prev_y = float(self.terraria_state[y_key])
+            floor_y = self._terraria_floor_for_x(float(self.terraria_state[x_key]))
+
+            self.terraria_state[vy_key] = float(self.terraria_state[vy_key]) + gravity
+            self.terraria_state[y_key] = float(self.terraria_state[y_key]) + float(self.terraria_state[vy_key])
+
+            if float(self.terraria_state[y_key]) >= floor_y:
+                self.terraria_state[y_key] = floor_y
+                self.terraria_state[vy_key] = 0.0
+                self.terraria_state[on_ground_key] = True
+            else:
+                self.terraria_state[on_ground_key] = False
+
+            # Landing check on platforms only when descending.
+            if float(self.terraria_state[vy_key]) >= 0:
+                body_h = float(self.terraria_state[f"{prefix}_h"])
+                top_prev = prev_y - body_h
+                top_now = float(self.terraria_state[y_key]) - body_h
+                x = float(self.terraria_state[x_key])
+                for p1, p2, py in self.terraria_state.get("platforms", []):
+                    if p1 <= x <= p2 and top_prev <= py <= top_now:
+                        self.terraria_state[y_key] = py + body_h
+                        self.terraria_state[vy_key] = 0.0
+                        self.terraria_state[on_ground_key] = True
+                        break
+
+    def _terraria_hero_movement(self):
+        if not self._is_duel_active():
+            return
+
+        speed = 3.6
+        world_width = float(self.terraria_state["world_width"])
+        if "a" in self.terraria_keys or "left" in self.terraria_keys:
+            self.terraria_state["hero_x"] = max(26.0, float(self.terraria_state["hero_x"]) - speed)
+            self.terraria_state["hero_facing"] = -1
+        if "d" in self.terraria_keys or "right" in self.terraria_keys:
+            self.terraria_state["hero_x"] = min(world_width - 26.0, float(self.terraria_state["hero_x"]) + speed)
+            self.terraria_state["hero_facing"] = 1
+
+        wants_jump = "w" in self.terraria_keys or "up" in self.terraria_keys or "space" in self.terraria_keys
+        if wants_jump and bool(self.terraria_state["hero_on_ground"]):
+            self.terraria_state["hero_vy"] = -10.6
+            self.terraria_state["hero_on_ground"] = False
+
+    def _terraria_floor_for_x(self, x: float) -> float:
+        return float(self.terraria_state.get("ground_y", 188.0))
+
+    def _terraria_spawn_projectile(self, owner: str, damage: int):
+        projectiles = self.terraria_state.get("projectiles", [])
+        if not isinstance(projectiles, list):
+            return
+
+        if owner == "hero":
+            x = float(self.terraria_state["hero_x"])
+            y = float(self.terraria_state["hero_y"]) - 24
+            direction = int(self.terraria_state["hero_facing"])
+            speed = 8.2
+            color = "#f6ddb0"
+            target = "enemy"
+        else:
+            x = float(self.terraria_state["enemy_x"])
+            y = float(self.terraria_state["enemy_y"]) - 26
+            direction = int(self.terraria_state["enemy_facing"])
+            speed = 7.0
+            color = "#ffb1a3"
+            target = "hero"
+
+        projectiles.append(
+            {
+                "x": x,
+                "y": y,
+                "vx": direction * speed,
+                "vy": 0.0,
+                "ttl": 120,
+                "owner": owner,
+                "target": target,
+                "damage": max(1, int(damage)),
+                "color": color,
+            }
+        )
+
+    def _terraria_update_projectiles(self):
+        projectiles = self.terraria_state.get("projectiles", [])
+        if not isinstance(projectiles, list):
+            return
+
+        world_width = float(self.terraria_state["world_width"])
+        hero_left = float(self.terraria_state["hero_x"]) - 12
+        hero_right = float(self.terraria_state["hero_x"]) + 12
+        hero_top = float(self.terraria_state["hero_y"]) - 46
+        hero_bottom = float(self.terraria_state["hero_y"])
+
+        enemy_left = float(self.terraria_state["enemy_x"]) - 12
+        enemy_right = float(self.terraria_state["enemy_x"]) + 12
+        enemy_top = float(self.terraria_state["enemy_y"]) - 48
+        enemy_bottom = float(self.terraria_state["enemy_y"])
+
+        survivors = []
+        for shot in projectiles:
+            if not isinstance(shot, dict):
+                continue
+            shot["x"] = float(shot.get("x", 0.0)) + float(shot.get("vx", 0.0))
+            shot["y"] = float(shot.get("y", 0.0)) + float(shot.get("vy", 0.0))
+            shot["ttl"] = int(shot.get("ttl", 0)) - 1
+
+            x = float(shot["x"])
+            y = float(shot["y"])
+            if shot["ttl"] <= 0 or x < 0 or x > world_width or y < 0 or y > 240:
+                continue
+
+            damage = max(1, int(shot.get("damage", 1)))
+            owner = str(shot.get("owner", "hero"))
+            hit = False
+
+            if owner == "hero":
+                if enemy_left <= x <= enemy_right and enemy_top <= y <= enemy_bottom and self.enemy and self.enemy.hp > 0:
+                    self._execute_damage_command(self.enemy, damage, "hero_projectile")
+                    self._append_log(f"Projectile hit: {self.enemy.name} takes {damage}")
+                    self._add_history(f"Projectile: {damage} to {self.enemy.name}")
+                    hit = True
+            else:
+                if hero_left <= x <= hero_right and hero_top <= y <= hero_bottom and self.hero and self.hero.hp > 0:
+                    self._execute_damage_command(self.hero, damage, "enemy_projectile")
+                    self._append_log(f"Projectile hit: {self.hero.name} takes {damage}")
+                    self._add_history(f"Projectile: {damage} to {self.hero.name}")
+                    hit = True
+
+            if not hit:
+                survivors.append(shot)
+
+        self.terraria_state["projectiles"] = survivors
+
+    def _terraria_spawn_effect(self, effect: dict):
+        effects = self.terraria_state.get("effects", [])
+        if isinstance(effects, list):
+            effects.append(effect)
+
+    def _terraria_update_effects(self):
+        effects = self.terraria_state.get("effects", [])
+        if not isinstance(effects, list):
+            return
+
+        survivors = []
+        for fx in effects:
+            if not isinstance(fx, dict):
+                continue
+            ttl = int(fx.get("ttl", 0)) - 1
+            fx["ttl"] = ttl
+            if fx.get("type") == "text":
+                fx["y"] = float(fx.get("y", 0.0)) - 0.9
+            if ttl > 0:
+                survivors.append(fx)
+        self.terraria_state["effects"] = survivors
+
+    def _terraria_spawn_sword_slash_effect(self):
+        hero_x = float(self.terraria_state["hero_x"])
+        hero_y = float(self.terraria_state["hero_y"])
+        facing = int(self.terraria_state["hero_facing"])
+        self._terraria_spawn_effect(
+            {
+                "type": "slash",
+                "x": hero_x + (18 * facing),
+                "y": hero_y - 20,
+                "ttl": 10,
+                "facing": facing,
+                "color": "#fff2b8",
+            }
+        )
+
+    def _terraria_fire_laser(self, damage: int) -> int:
+        if not self.hero or not self.enemy:
+            return 0
+
+        hero_x = float(self.terraria_state["hero_x"])
+        hero_y = float(self.terraria_state["hero_y"]) - 24
+        enemy_x = float(self.terraria_state["enemy_x"])
+        enemy_y = float(self.terraria_state["enemy_y"]) - 28
+        facing = int(self.terraria_state["hero_facing"])
+
+        max_range = 560.0
+        if facing > 0:
+            target_x = hero_x + max_range
+            in_front = enemy_x >= hero_x
+        else:
+            target_x = hero_x - max_range
+            in_front = enemy_x <= hero_x
+
+        hit = in_front and abs(enemy_x - hero_x) <= max_range and abs(enemy_y - hero_y) <= 36
+        if hit:
+            target_x = enemy_x
+
+        self._terraria_spawn_effect(
+            {
+                "type": "laser",
+                "x1": hero_x,
+                "y1": hero_y,
+                "x2": target_x,
+                "y2": enemy_y if hit else hero_y,
+                "ttl": 8,
+                "color": "#7ef7ff",
+            }
+        )
+
+        if not hit:
+            self._append_log("GoF laser missed.")
+            return 0
+
+        self._execute_damage_command(self.enemy, damage, "hero_laser")
+        return damage
+
+    def _terraria_update_camera(self):
+        if not self.terraria_canvas:
+            return
+        width = int(self.terraria_canvas.winfo_width()) or 620
+        world_width = float(self.terraria_state["world_width"])
+        desired = float(self.terraria_state["hero_x"]) - (width / 2)
+        max_cam = max(0.0, world_width - width)
+        self.terraria_state["camera_x"] = max(0.0, min(max_cam, desired))
+
+    def _terraria_draw_world(self):
+        if not self.terraria_canvas:
+            return
+
+        c = self.terraria_canvas
+        c.delete("all")
+
+        width = int(c.winfo_width()) or 620
+        world_width = float(self.terraria_state.get("world_width", 1600.0))
+        camera_x = float(self.terraria_state.get("camera_x", 0.0))
+        ground = int(float(self.terraria_state.get("ground_y", 188.0)))
+        parallax = camera_x * 0.25
+
+        def sx(world_x: float) -> float:
+            return world_x - camera_x
+
+        c.create_rectangle(0, 0, width, 120, fill="#77ace8", outline="")
+        c.create_rectangle(0, 120, width, ground, fill="#9fd0ff", outline="")
+        c.create_rectangle(0, ground, width, 240, fill="#7b5737", outline="")
+
+        for cx in range(-200, int(world_width), 280):
+            cx_screen = sx(cx - parallax)
+            c.create_oval(cx_screen, 20, cx_screen + 130, 80, fill="#d9ecff", outline="")
+
+        for x in range(0, width, 20):
+            c.create_rectangle(x, ground - 12, x + 20, ground, fill="#5bb05b", outline="#4a9d4a")
+            c.create_line(x, ground, x, 240, fill="#5e412b")
+
+        platforms = self.terraria_state.get("platforms", [])
+        if isinstance(platforms, list):
+            for p1, p2, py in platforms:
+                x1 = sx(float(p1))
+                x2 = sx(float(p2))
+                if x2 < -40 or x1 > width + 40:
+                    continue
+                c.create_rectangle(x1, py - 8, x2, py, fill="#9a7448", outline="#5f452c")
+                for tx in range(int(x1), int(x2), 18):
+                    c.create_line(tx, py - 8, tx + 6, py, fill="#6e4f31")
+
+        hero_x = sx(float(self.terraria_state["hero_x"]))
+        hero_y = float(self.terraria_state["hero_y"])
+        enemy_x = sx(float(self.terraria_state["enemy_x"]))
+        enemy_y = float(self.terraria_state["enemy_y"])
+
+        c.create_rectangle(hero_x - 11, hero_y - 36, hero_x + 11, hero_y, fill="#52a6ff", outline="#17385c", width=2)
+        c.create_rectangle(hero_x - 8, hero_y - 46, hero_x + 8, hero_y - 36, fill="#f2d3ae", outline="#6f5237")
+        c.create_text(hero_x, hero_y - 56, text=self.hero.name if self.hero else "Hero", fill="#10253d", font=("Consolas", 8, "bold"))
+
+        c.create_rectangle(enemy_x - 12, enemy_y - 38, enemy_x + 12, enemy_y, fill="#d56a6a", outline="#5a1f1f", width=2)
+        c.create_rectangle(enemy_x - 8, enemy_y - 48, enemy_x + 8, enemy_y - 38, fill="#f1d2b6", outline="#69442b")
+        c.create_text(enemy_x, enemy_y - 58, text=self.enemy.name if self.enemy else "Enemy", fill="#3a1414", font=("Consolas", 8, "bold"))
+
+        projectiles = self.terraria_state.get("projectiles", [])
+        if isinstance(projectiles, list):
+            for shot in projectiles:
+                if not isinstance(shot, dict):
+                    continue
+                px = sx(float(shot.get("x", 0.0)))
+                py = float(shot.get("y", 0.0))
+                if -12 <= px <= width + 12:
+                    c.create_oval(px - 4, py - 4, px + 4, py + 4, fill=str(shot.get("color", "#ffffff")), outline="")
+
+        pickups = self.terraria_state.get("pickups", [])
+        if isinstance(pickups, list):
+            for item in pickups:
+                if not isinstance(item, dict):
+                    continue
+                px = sx(float(item.get("x", 0.0)))
+                py = float(item.get("y", 0.0)) - 8
+                if -16 <= px <= width + 16:
+                    if str(item.get("kind", "health")) == "health":
+                        c.create_oval(px - 7, py - 7, px + 7, py + 7, fill="#ff6d7f", outline="#7d1f2b", width=1)
+                        c.create_text(px, py + 1, text="+", fill="#fff2f2", font=("Consolas", 8, "bold"))
+                    else:
+                        c.create_rectangle(px - 7, py - 7, px + 7, py + 7, fill="#ffd98a", outline="#7b5a21", width=1)
+                        c.create_text(px, py + 1, text="A", fill="#432e05", font=("Consolas", 8, "bold"))
+
+        effects = self.terraria_state.get("effects", [])
+        if isinstance(effects, list):
+            for fx in effects:
+                if not isinstance(fx, dict):
+                    continue
+                fx_type = fx.get("type")
+                if fx_type == "laser":
+                    x1 = sx(float(fx.get("x1", 0.0)))
+                    y1 = float(fx.get("y1", 0.0))
+                    x2 = sx(float(fx.get("x2", 0.0)))
+                    y2 = float(fx.get("y2", 0.0))
+                    color = str(fx.get("color", "#7ef7ff"))
+                    c.create_line(x1, y1, x2, y2, fill=color, width=4)
+                    c.create_line(x1, y1 + 2, x2, y2 + 2, fill="#d8ffff", width=1)
+                elif fx_type == "slash":
+                    sx0 = sx(float(fx.get("x", 0.0)))
+                    sy0 = float(fx.get("y", 0.0))
+                    facing = int(fx.get("facing", 1))
+                    color = str(fx.get("color", "#fff2b8"))
+                    c.create_arc(
+                        sx0 - 24,
+                        sy0 - 22,
+                        sx0 + 24,
+                        sy0 + 22,
+                        start=300 if facing > 0 else 120,
+                        extent=95,
+                        style="arc",
+                        outline=color,
+                        width=3,
+                    )
+                elif fx_type == "text":
+                    tx = sx(float(fx.get("x", 0.0)))
+                    ty = float(fx.get("y", 0.0))
+                    c.create_text(
+                        tx,
+                        ty,
+                        text=str(fx.get("text", "")),
+                        fill=str(fx.get("color", "#ffffff")),
+                        font=("Consolas", 9, "bold"),
+                    )
+
+        if self.hero and self.enemy:
+            wave_number = int(self.terraria_state.get("wave_number", 1)) if self.terraria_state else 1
+            c.create_text(
+                310,
+                18,
+                text=f"Wave {wave_number} | HP {self.hero.name}: {self.hero.hp}/{self.hero.max_hp} | HP {self.enemy.name}: {self.enemy.hp}/{self.enemy.max_hp}",
+                fill="#0f2138",
+                font=("Consolas", 10, "bold"),
+            )
+
+        c.create_text(310, 232, text="A/D move | W/Space jump | F attack | H heal | 1=Laser 2=Spear 3=Sword", fill="#f5f3db", font=("Consolas", 9))
+
+        # Simple minimap in the top-right corner.
+        mini_w = 150
+        mini_h = 44
+        mini_x = width - mini_w - 10
+        mini_y = 8
+        world_w = float(self.terraria_state.get("world_width", 1600.0))
+        scale = mini_w / max(1.0, world_w)
+
+        c.create_rectangle(mini_x, mini_y, mini_x + mini_w, mini_y + mini_h, fill="#122032", outline="#c8d1e6", width=1)
+        c.create_line(mini_x, mini_y + mini_h - 8, mini_x + mini_w, mini_y + mini_h - 8, fill="#6ea36f", width=2)
+
+        platforms = self.terraria_state.get("platforms", [])
+        if isinstance(platforms, list):
+            for p1, p2, _py in platforms:
+                p1x = mini_x + int(float(p1) * scale)
+                p2x = mini_x + int(float(p2) * scale)
+                c.create_line(p1x, mini_y + mini_h - 14, p2x, mini_y + mini_h - 14, fill="#9c7e54", width=2)
+
+        hero_mx = mini_x + int(float(self.terraria_state.get("hero_x", 0.0)) * scale)
+        enemy_mx = mini_x + int(float(self.terraria_state.get("enemy_x", 0.0)) * scale)
+        c.create_oval(hero_mx - 2, mini_y + 11, hero_mx + 2, mini_y + 15, fill="#79c2ff", outline="")
+        c.create_oval(enemy_mx - 2, mini_y + 11, enemy_mx + 2, mini_y + 15, fill="#ff8a8a", outline="")
+
+        if isinstance(pickups, list):
+            for item in pickups:
+                if not isinstance(item, dict):
+                    continue
+                px = mini_x + int(float(item.get("x", 0.0)) * scale)
+                color = "#ff7e8f" if str(item.get("kind", "health")) == "health" else "#ffd98a"
+                c.create_rectangle(px - 1, mini_y + 18, px + 1, mini_y + 20, fill=color, outline=color)
+
+        cam_x = float(self.terraria_state.get("camera_x", 0.0))
+        viewport_world = width
+        cam_w = max(8, int(viewport_world * scale))
+        cam_left = mini_x + int(cam_x * scale)
+        c.create_rectangle(cam_left, mini_y + 2, cam_left + cam_w, mini_y + mini_h - 2, outline="#f0b35a", width=1)
+
+        if not self._is_duel_active() and self.hero and self.enemy:
+            winner = self.hero.name if self.hero.hp > 0 else self.enemy.name
+            c.create_rectangle(130, 84, 490, 150, fill="#0f1a2b", outline="#f0b35a", width=2)
+            c.create_text(310, 104, text="BATTLE ENDED", fill="#f0b35a", font=("Bahnschrift SemiBold", 16))
+            c.create_text(310, 128, text=f"Winner: {winner}", fill="#f2f1e8", font=("Consolas", 11, "bold"))
+
+    def _terraria_loop(self):
+        self.terraria_loop_after_id = None
+        if not self._battle_window_exists() or not self.terraria_canvas:
+            return
+
+        self._terraria_try_spawn_next_wave()
+        self._terraria_spawn_pickups()
+        self._terraria_hero_movement()
+        self._terraria_enemy_ai()
+        self._terraria_apply_gravity()
+        self._terraria_update_pickups()
+        self._terraria_update_projectiles()
+        self._terraria_update_effects()
+        self._terraria_update_camera()
+        self._terraria_draw_world()
+
+        self.terraria_loop_after_id = self.root.after(33, self._terraria_loop)
+
+    def _sync_battle_window_status(self):
+        if not self._battle_window_exists():
+            return
+        if self.battle_weapon_var:
+            self.battle_weapon_var.set(f"Weapon: {self.hero_weapon_kind.get()} (1/2/3)")
+        if self.hero and self.enemy:
+            enemy_type = str(self.terraria_state.get("enemy_archetype", "unknown")).upper() if self.terraria_state else "UNKNOWN"
+            wave_number = int(self.terraria_state.get("wave_number", 1)) if self.terraria_state else 1
+            self.battle_status_var.set(f"Wave {wave_number}: {self.hero.name} vs {self.enemy.name} [{enemy_type}]")
+            self.battle_hero_hp_var.set(f"Hero HP: {self.hero.hp}/{self.hero.max_hp}")
+            self.battle_enemy_hp_var.set(f"Enemy HP: {self.enemy.hp}/{self.enemy.max_hp}")
+        else:
+            self.battle_status_var.set("Waiting for both fighters")
+            self.battle_hero_hp_var.set("Hero HP: -")
+            self.battle_enemy_hp_var.set("Enemy HP: -")
+
+        ammo = self.terraria_state.get("hero_ammo", {}) if self.terraria_state else {}
+        blaster_ammo = int(ammo.get("Blaster", 0)) if isinstance(ammo, dict) else 0
+        spear_ammo = int(ammo.get("Spear", 0)) if isinstance(ammo, dict) else 0
+        wave_kills = int(self.terraria_state.get("wave_kills", 0)) if self.terraria_state else 0
+        self.battle_round_var.set(f"Round: {self.round_count}")
+        self.battle_stats_var.set(
+            f"Dealt {self.hero_damage_dealt} | Taken {self.hero_damage_taken} | Heal {self.hero_total_heal} | Ammo B:{blaster_ammo} S:{spear_ammo} | Kills {wave_kills}"
+        )
+
+    def _end_fight_and_close(self):
+        if not self._battle_window_exists():
+            return
+
+        if not messagebox.askyesno("End Fight", "End current fight and close battle interface?", parent=self.battle_window):
+            return
+
+        self._append_log("Fight ended manually by player.")
+        self._add_history("Fight ended manually")
+        self.last_action_var.set("Last action: Fight ended manually")
+
+        # Exit duel mode cleanly so normal controls are available again.
+        self.enemy = None
+        if self.terraria_state:
+            self.terraria_state["wave_spawn_pending"] = False
+
+        self._terraria_stop_loop()
+        self.terraria_keys.clear()
+
+        if self.battle_window is not None and self.battle_window.winfo_exists():
+            self.battle_window.destroy()
+        self.battle_window = None
+        self.battle_feed = None
+        self.terraria_canvas = None
+
+        self._update_status()
+        self._refresh_focus_mode()
+
+    def _battle_attack_action(self):
+        if not self._battle_ready():
+            return
+
+        dmg = max(1, int(self.battle_attack_var.get()))
+        weapon = self._current_weapon(dmg)
+        self._animate_strike("hero")
+        dealt = weapon.strike(self.hero, self.enemy)
+        self.last_action_var.set(f"Last action: {self.hero.name} strikes with {weapon.name} for {dealt}")
+        self._add_history(f"Battle attack: {self.hero.name} {dealt} via {weapon.name}")
+
+        if self.enemy.hp > 0:
+            counter = max(0, int(self.battle_enemy_attack_var.get()))
+            if counter > 0:
+                self._animate_strike("enemy")
+                self.hero.take_damage(counter)
+                self._append_log(f"Counter attack: {self.enemy.name} deals {counter}")
+                self._add_history(f"Battle counter: {self.enemy.name} {counter}")
+
+        self.round_count += 1
+        self.round_var.set(f"Round: {self.round_count}")
+        self._update_status()
+
+    def _battle_heal_action(self):
+        if not self._battle_ready():
+            return
+
+        heal = max(1, int(self.battle_heal_var.get()))
+        self.hero.heal(heal)
+        self.last_action_var.set(f"Last action: {self.hero.name} heals for {heal}")
+        self._add_history(f"Battle heal: {self.hero.name} +{heal}")
+
+        if self.enemy.hp > 0:
+            pressure = max(0, int(self.battle_enemy_attack_var.get()))
+            if pressure > 0:
+                self._animate_strike("enemy")
+                self.hero.take_damage(pressure)
+                self._append_log(f"Pressure hit: {self.enemy.name} interrupts for {pressure}")
+                self._add_history(f"Battle pressure: {self.enemy.name} {pressure}")
+
+        self.round_count += 1
+        self.round_var.set(f"Round: {self.round_count}")
+        self._update_status()
+
+    def _battle_manual_round_action(self):
+        if not self._battle_ready():
+            return
+
+        hero_dmg = max(0, int(self.battle_attack_var.get()))
+        if hero_dmg > 0:
+            weapon = self._current_weapon(hero_dmg)
+            self._animate_strike("hero")
+            dealt = weapon.strike(self.hero, self.enemy)
+            self.last_action_var.set(f"Last action: {self.hero.name} hits with {weapon.name} for {dealt}")
+            self._add_history(f"Manual round: {self.hero.name} {dealt} via {weapon.name}")
+        else:
+            self._append_log("Manual round: hero attack skipped.")
+
+        if self.enemy.hp > 0:
+            enemy_dmg = max(0, int(self.battle_enemy_attack_var.get()))
+            if enemy_dmg > 0:
+                self._animate_strike("enemy")
+                self.hero.take_damage(enemy_dmg)
+                self.last_action_var.set(f"Last action: {self.enemy.name} hits for {enemy_dmg}")
+                self._add_history(f"Manual round: {self.enemy.name} {enemy_dmg}")
+            else:
+                self._append_log("Manual round: enemy attack skipped.")
+
+        self.round_count += 1
+        self.round_var.set(f"Round: {self.round_count}")
+        self._append_log("Manual round complete.")
+        self._update_status()
 
     def _draw_hp_bar(self, canvas: tk.Canvas, hp: int, max_hp: int):
         canvas.delete("all")
@@ -947,13 +2166,47 @@ class GoFArenaGUI:
         self._update_stats()
         if self._is_same_combatant(c, self.hero):
             self._flash_hit(self.hero_hp_canvas)
+            self._terraria_spawn_effect(
+                {
+                    "type": "text",
+                    "x": float(self.terraria_state.get("hero_x", 0.0)),
+                    "y": float(self.terraria_state.get("hero_y", 0.0)) - 56,
+                    "ttl": 20,
+                    "text": f"-{amount}",
+                    "color": "#ffb7b7",
+                }
+            )
         elif self._is_same_combatant(c, self.enemy):
             self._flash_hit(self.enemy_hp_canvas)
+            self._terraria_spawn_effect(
+                {
+                    "type": "text",
+                    "x": float(self.terraria_state.get("enemy_x", 0.0)),
+                    "y": float(self.terraria_state.get("enemy_y", 0.0)) - 58,
+                    "ttl": 20,
+                    "text": f"-{amount}",
+                    "color": "#ffdcb2",
+                }
+            )
         self._update_status()
 
     def _on_death(self, data):
         c = data["character"]
         self._append_log(f"-> {c.name} has died.")
+
+        if (
+            self._battle_window_exists()
+            and self.hero is not None
+            and self.hero.hp > 0
+            and self._is_same_combatant(c, self.enemy)
+            and self.terraria_state
+        ):
+            self.terraria_state["wave_kills"] = int(self.terraria_state.get("wave_kills", 0)) + 1
+            self._terraria_schedule_next_wave()
+            self.last_action_var.set(f"Last action: {self.hero.name} cleared the wave")
+            self._update_status()
+            return
+
         self._update_status()
         self._announce_winner_if_needed(c)
 
@@ -965,8 +2218,28 @@ class GoFArenaGUI:
             self.hero_total_heal += amount
             self._update_stats()
             self._animate_heal("hero")
+            self._terraria_spawn_effect(
+                {
+                    "type": "text",
+                    "x": float(self.terraria_state.get("hero_x", 0.0)),
+                    "y": float(self.terraria_state.get("hero_y", 0.0)) - 56,
+                    "ttl": 20,
+                    "text": f"+{amount}",
+                    "color": "#b8ffb6",
+                }
+            )
         elif self._is_same_combatant(c, self.enemy):
             self._animate_heal("enemy")
+            self._terraria_spawn_effect(
+                {
+                    "type": "text",
+                    "x": float(self.terraria_state.get("enemy_x", 0.0)),
+                    "y": float(self.terraria_state.get("enemy_y", 0.0)) - 58,
+                    "ttl": 20,
+                    "text": f"+{amount}",
+                    "color": "#b8ffd6",
+                }
+            )
         self._update_status()
 
     def _reset_match_progress(self, clear_feed: bool):
@@ -981,6 +2254,10 @@ class GoFArenaGUI:
             self.feed.configure(state="normal")
             self.feed.delete("1.0", "end")
             self.feed.configure(state="disabled")
+            if self.battle_feed and self._battle_window_exists():
+                self.battle_feed.configure(state="normal")
+                self.battle_feed.delete("1.0", "end")
+                self.battle_feed.configure(state="disabled")
             self._append_log("Match reset. Feed cleared.")
 
     def create_hero(self):
@@ -1000,6 +2277,7 @@ class GoFArenaGUI:
         self._add_history(f"Spawn hero: {self.hero.name}")
         self.last_action_var.set(f"Last action: Hero {self.hero.name} entered the arena")
         self._update_status()
+        self._ensure_battle_interface()
 
     def create_enemy(self):
         enemy_kind = self.enemy_type.get().lower()
@@ -1018,6 +2296,7 @@ class GoFArenaGUI:
         self._add_history(f"Spawn enemy: {self.enemy.name}")
         self.last_action_var.set(f"Last action: Enemy {self.enemy.name} appeared")
         self._update_status()
+        self._ensure_battle_interface()
 
     def hero_attack(self):
         if not self._battle_ready():
@@ -1180,6 +2459,7 @@ class GoFArenaGUI:
         logger.log(f"Faction kit generated: {faction}", "INFO")
         self.last_action_var.set(f"Last action: {faction} faction kit deployed")
         self._update_status()
+        self._ensure_battle_interface()
 
     def clone_prototype_enemy(self):
         key = self.prototype_var.get()
@@ -1202,6 +2482,7 @@ class GoFArenaGUI:
         self._add_history(f"Clone enemy: {self.enemy.name}")
         self.last_action_var.set(f"Last action: Prototype clone {self.enemy.name} ready")
         self._update_status()
+        self._ensure_battle_interface()
 
     def demo_builder_integrity(self):
         builder = CharacterBuilder()

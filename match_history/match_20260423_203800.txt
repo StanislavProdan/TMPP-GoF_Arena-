@@ -1,0 +1,20 @@
+GoF Arena - Match Report
+Time: 2026-04-23 20:38:00
+Winner: Xenomorph Scout W2
+Defeated: da
+Rounds: 22
+
+Hero Stats
+Damage dealt: 163
+Damage taken: 141
+Total heal: 70
+
+Recent Combat History
+- Rewind hero
+- Projectile: 8 to da
+- GoF laser: 12 via Blaster of the Arena
+- GoF laser: 15 via Blaster of the Arena
+- GoF laser: 15 via Blaster of the Arena
+- Projectile: 7 to da
+- GoF laser: 10 via Blaster of the Arena
+- WIN: Xenomorph Scout W2 defeated da

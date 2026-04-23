@@ -2,25 +2,37 @@
 
 Simulator RPG in Python pentru demonstrarea pattern-urilor GoF, acum cu interfata grafica (Tkinter) si mod consola.
 
-## Pattern-uri implementate până acum
-- **Singleton** - `utils/logger.py` - Ensure only one Logger instance exists globally
-- **Observer** - `game/events.py` - EventBus pentru subscribe/publish la game events (damage, death, heal)
-- **Builder** - `patterns/creational/builder.py` - CharacterBuilder pentru construire fluent a personajelor
-- **Factory Method** - `game/factories/enemy_factory.py` - EnemyFactory pentru creare automată a tipurilor de inamici
-- **Abstract Factory** - `patterns/creational/abstract_factory.py` - MedievalFactionFactory și SciFiFactionFactory pentru crearea de kit-uri complete (erou, inamic, armă)
-- **Prototype** - `patterns/creational/prototype.py` - CharacterPrototype + PrototypeRegistry pentru clonarea rapidă a personajelor predefinite
-- **Adapter** - `patterns/structural/adapter.py` - adaptează `LegacyEnemy` la interfața modernă `Character`
-- **Composite** - `patterns/structural/composite.py` - tratează un personaj individual și un grup (`Squad`) prin aceeași interfață
-- **Facade** - `patterns/structural/facade.py` - expune API simplificat pentru setup + rundă de duel
-- **Flyweight** - `patterns/structural/flyweight.py` - reutilizează starea partajată pentru tipuri de inamici repetate
-- **Decorator** - `patterns/structural/decorator.py` - adaugă efecte precum scut și bonus de vindecare peste un personaj existent
-- **Bridge** - `patterns/structural/bridge.py` - separă armele de modul de damage folosit
-- **Proxy** - `patterns/structural/proxy.py` - oferă acces lazy/cached la istoricul de meciuri
-- **Strategy** - `patterns/behavioral/strategy.py` - schimbă la runtime algoritmul de atac (balanced/aggressive/defensive/chaos)
-- **Observer (behavioral)** - `patterns/behavioral/observer.py` - subject + observers reutilizabili pentru notificări de luptă
-- **Command** - `patterns/behavioral/command.py` - încapsulează acțiuni (`DamageCommand`, `HealCommand`) cu suport de undo
-- **Memento** - `patterns/behavioral/memento.py` - snapshot/restore pentru starea personajelor
-- **Iterator** - `patterns/behavioral/iterator.py` - parcurgere forward/reverse peste colecții de log fără expunerea structurii interne
+## Pattern-uri implementate (active în Fight Interface)
+
+### Behavioral (4)
+- **Observer** - `patterns/behavioral/observer.py` + `game/events.py`
+    - Notifică UI-ul și statistica de luptă la damage/heal/death și la evenimente de wave.
+- **Strategy** - `patterns/behavioral/strategy.py`
+    - Schimbă comportamentul AI-ului inamic în funcție de archetype (`slime`, `archer`, `brute`).
+- **Command** - `patterns/behavioral/command.py`
+    - Execută acțiunile de damage/heal prin comenzi (`DamageCommand`, `HealCommand`) în timpul luptei.
+- **Memento** - `patterns/behavioral/memento.py`
+    - Salvează checkpoint-uri pentru erou și permite restaurarea în fight (`Rewind Hero`).
+
+### Creational (4)
+- **Factory Method** - `game/factories/enemy_factory.py`
+    - Generează inamici pentru valuri speciale (ex. valuri de tip boss).
+- **Abstract Factory** - `patterns/creational/abstract_factory.py`
+    - Aplică tema wave-ului (Medieval/Sci-Fi) și produce familie coerentă de entități.
+- **Builder** - `patterns/creational/builder.py`
+    - Construiește inamicii de wave cu HP/scalare configurată dinamic.
+- **Prototype** - `patterns/creational/prototype.py`
+    - Clonează rapid baza de inamic pe archetype înainte de personalizare pe wave.
+
+### Structural (4)
+- **Bridge** - `patterns/structural/bridge.py`
+    - Separă tipul armei de tipul damage-ului și permite combinații runtime în battle.
+- **Decorator** - `patterns/structural/decorator.py`
+    - Aplică buff-uri active pe erou (`ShieldDecorator`, `BlessingDecorator`) în timpul luptei.
+- **Flyweight** - `patterns/structural/flyweight.py`
+    - Refolosește arhetipuri de inamici pentru spawn eficient pe wave-uri.
+- **Adapter** - `patterns/structural/adapter.py`
+    - Integrează inamici legacy (`LegacyEnemy`) în flow-ul modern de fight prin adaptor.
 
 ## Structură proiect
 ```
@@ -72,20 +84,6 @@ python main.py
 - `python main.py` - porneste interfata grafica (GUI)
 - `python main.py --console` - porneste meniul text din terminal
 
-## Caracteristici recente (Feb 16, 2026)
-- ✅ Implementat Abstract Factory pattern în `patterns/creational/abstract_factory.py`
-- ✅ Adăugat opțiunea 5 în meniu pentru crearea kit-urilor de facțiune (Medieval/Sci-Fi)
-- ✅ MedievalFactionFactory - creează erou (Sir Arthur), inamic (Goblin Raider), armă (Longsword +5)
-- ✅ SciFiFactionFactory - creează erou (Nova-7 Android), inamic (Xenomorph Scout), armă (Plasma Rifle Mk.3)
-- ✅ Fixate metodele CharacterBuilder în Abstract Factory (set_name → name, set_max_hp → max_hp, etc.)
-- ✅ Update menu range: 0-4 → 0-5
-- ✅ Implementat Prototype pattern în `patterns/creational/prototype.py`
-- ✅ Adăugat opțiunea 6 în meniu pentru clonarea inamicilor din prototip (Goblin Elite, Orc Berserker, Ancient Troll)
-
-## Caracteristici recente (Apr 21, 2026)
-- ✅ Adăugate patternurile comportamentale în `patterns/behavioral/`: Strategy, Observer, Command, Memento, Iterator
-- ✅ Extins meniul din consolă la intervalul 0-21 cu demo-uri pentru noile patternuri (opțiunile 17-21)
-- ✅ Adăugate butoane dedicate în GUI pentru demo-urile Strategy, Observer, Command, Memento și Iterator
 
 ## Gameplay
 1. **Opțiunea 1**: Creează un erou cu HP personalizat

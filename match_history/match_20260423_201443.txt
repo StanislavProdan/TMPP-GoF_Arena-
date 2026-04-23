@@ -1,0 +1,20 @@
+GoF Arena - Match Report
+Time: 2026-04-23 20:14:43
+Winner: da
+Defeated: Orc Warrior
+Rounds: 13
+
+Hero Stats
+Damage dealt: 93
+Damage taken: 85
+Total heal: 0
+
+Recent Combat History
+- Projectile: 12 to Orc Warrior
+- GoF hit: Orc Warrior 9
+- Projectile: 8 to da
+- GoF slash: 9 via Sword of the Arena
+- Projectile: 8 to da
+- GoF hit: Orc Warrior 9
+- GoF slash: 14 via Sword of the Arena
+- WIN: da defeated Orc Warrior

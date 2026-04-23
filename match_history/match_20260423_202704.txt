@@ -1,0 +1,14 @@
+GoF Arena - Match Report
+Time: 2026-04-23 20:27:04
+Winner: Goblin
+Defeated: da
+Rounds: 0
+
+Hero Stats
+Damage dealt: 0
+Damage taken: 107
+Total heal: 0
+
+Recent Combat History
+- Match reset
+- WIN: Goblin defeated da

@@ -1,0 +1,15 @@
+GoF Arena - Match Report
+Time: 2026-04-23 20:28:06
+Winner: Troll
+Defeated: da
+Rounds: 0
+
+Hero Stats
+Damage dealt: 0
+Damage taken: 108
+Total heal: 0
+
+Recent Combat History
+- Match reset
+- Spawn enemy: Troll
+- WIN: Troll defeated da

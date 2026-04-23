@@ -1,0 +1,20 @@
+GoF Arena - Match Report
+Time: 2026-04-23 20:38:40
+Winner: Xenomorph Scout W2
+Defeated: Hero
+Rounds: 6
+
+Hero Stats
+Damage dealt: 54
+Damage taken: 126
+Total heal: 20
+
+Recent Combat History
+- Projectile: 8 to Hero
+- Battle heal: Hero +10
+- Battle pressure: Xenomorph Scout W2 8
+- Battle heal: Hero +10
+- Battle pressure: Xenomorph Scout W2 8
+- Projectile: 9 to Hero
+- Projectile: 9 to Hero
+- WIN: Xenomorph Scout W2 defeated Hero

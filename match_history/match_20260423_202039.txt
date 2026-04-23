@@ -1,0 +1,20 @@
+GoF Arena - Match Report
+Time: 2026-04-23 20:20:39
+Winner: da
+Defeated: Troll
+Rounds: 14
+
+Hero Stats
+Damage dealt: 163
+Damage taken: 10
+Total heal: 0
+
+Recent Combat History
+- Projectile: 10 to Troll
+- GoF shot via Spear of the Arena
+- GoF shot via Spear of the Arena
+- Projectile: 13 to Troll
+- GoF shot via Spear of the Arena
+- Projectile: 13 to Troll
+- GoF shot via Spear of the Arena
+- WIN: da defeated Troll

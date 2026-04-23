@@ -1,0 +1,20 @@
+GoF Arena - Match Report
+Time: 2026-04-23 20:07:49
+Winner: da
+Defeated: Troll
+Rounds: 10
+
+Hero Stats
+Damage dealt: 168
+Damage taken: 72
+Total heal: 0
+
+Recent Combat History
+- Battle counter: Troll 8
+- WIN: da defeated Troll
+- Battle attack: da 12 via Blaster of the Arena
+- Battle counter: Troll 8
+- Battle counter: Troll 8
+- Battle counter: Troll 8
+- Battle counter: Troll 8
+- WIN: da defeated Troll

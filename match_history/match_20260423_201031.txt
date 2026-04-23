@@ -1,0 +1,20 @@
+GoF Arena - Match Report
+Time: 2026-04-23 20:10:31
+Winner: da
+Defeated: Orc Warrior
+Rounds: 7
+
+Hero Stats
+Damage dealt: 98
+Damage taken: 72
+Total heal: 0
+
+Recent Combat History
+- Terraria slash: 13 via Sword of the Arena
+- Terraria slash: 14 via Sword of the Arena
+- Terraria hit: Orc Warrior 6
+- Terraria slash: 14 via Sword of the Arena
+- Terraria slash: 13 via Sword of the Arena
+- Terraria hit: Orc Warrior 9
+- Terraria slash: 13 via Sword of the Arena
+- WIN: da defeated Orc Warrior

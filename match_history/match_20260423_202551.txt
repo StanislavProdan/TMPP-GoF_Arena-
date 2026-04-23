@@ -1,0 +1,20 @@
+GoF Arena - Match Report
+Time: 2026-04-23 20:25:51
+Winner: GoF Slime W4
+Defeated: Hero
+Rounds: 42
+
+Hero Stats
+Damage dealt: 294
+Damage taken: 131
+Total heal: 33
+
+Recent Combat History
+- GoF laser: 11 via Blaster of the Arena
+- GoF shot via Blaster of the Arena
+- GoF shot via Blaster of the Arena
+- GoF laser: 11 via Blaster of the Arena
+- Wave 4 incoming
+- GoF laser: 10 via Blaster of the Arena
+- Wave 4: GoF Slime W4 (T1)
+- WIN: GoF Slime W4 defeated Hero

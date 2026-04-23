@@ -1,0 +1,20 @@
+GoF Arena - Match Report
+Time: 2026-04-23 20:34:35
+Winner: Xenomorph Scout W2
+Defeated: sda
+Rounds: 8
+
+Hero Stats
+Damage dealt: 93
+Damage taken: 119
+Total heal: 10
+
+Recent Combat History
+- Quick hit: sda 20 via Sword of the Arena
+- Retaliate: Xenomorph Scout W2 11
+- Projectile: 8 to sda
+- Projectile: 7 to sda
+- Quick hit: sda 12 via Sword of the Arena
+- Retaliate: Xenomorph Scout W2 11
+- Projectile: 9 to sda
+- WIN: Xenomorph Scout W2 defeated sda

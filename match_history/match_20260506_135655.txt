@@ -1,0 +1,20 @@
+GoF Arena - Match Report
+Time: 2026-05-06 13:56:55
+Winner: stas
+Defeated: Orc Warrior
+Rounds: 11
+
+Hero Stats
+Damage dealt: 108
+Damage taken: 137
+Total heal: 53
+
+Recent Combat History
+- WIN: Orc Warrior defeated stas
+- Battle counter: Orc Warrior 8
+- Battle attack: stas 12 via Spear of the Arena
+- WIN: Orc Warrior defeated stas
+- Battle counter: Orc Warrior 8
+- WIN: stas defeated Orc Warrior
+- Battle attack: stas 12 via Spear of the Arena
+- WIN: stas defeated Orc Warrior
